@@ -1,0 +1,30 @@
+name: PactSDK-Checks
+on: [push]
+jobs:
+  Lint-And-Test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+      - uses: actions/setup-python@v1
+        with:
+          python-version: 3.9
+      - uses: Gr1N/setup-poetry@v7
+      - uses: KengoTODA/actions-setup-docker-compose@main
+        with:
+          version: "1.29.2"
+      - run: npm install
+      - name: Linting
+        run: npm run lint
+      - name: Building
+        run: npm run build
+      - name: Fetch contracts
+        uses: actions/checkout@v2
+        with:
+          repository: "pactfi/contracts_v1"
+          token: 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
+          path: contracts_v1
+      - run: cd contracts_v1 && git apply ../contracts.patch
+      - run: cd contracts_v1 && poetry install
+      - run: sudo apt-get install expect
+      - run: npm run test

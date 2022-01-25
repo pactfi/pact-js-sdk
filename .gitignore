@@ -102,3 +102,7 @@ dist
 
 # TernJS port file
 .tern-port
+
+# Those have to be checked out to run tests
+sandbox
+contracts_v1

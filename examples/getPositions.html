@@ -1,0 +1,28 @@
+<html>
+  <head>
+    <script
+      src="https://unpkg.com/algosdk@1.13.0/dist/browser/algosdk.min.js"
+      integrity="sha384-3IaxTgktbWGiqPkr5oZQMM4H99ziYzoEUb6sznk03coGR2Cdf1r0I1GWPUL37iu8"
+      crossorigin="anonymous"
+    ></script>
+
+    <script src="../dist/pactifysdk.min.js"></script>
+
+    <script>
+      (async function() {
+        const client = new pact.Client({
+          algod: new algosdk.Algodv2(), // provide options
+        })
+
+        const algo = await client.fetchAsset(0)
+        const jamnik = await client.fetchAsset(41409282)
+
+        const pool = await client.fetchPool(algo, jamnik);
+
+        console.log(`Positions ${pool.positions}`);
+      })();
+    </script>
+  </head>
+
+  <body></body>
+</html>

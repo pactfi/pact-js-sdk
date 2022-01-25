@@ -1,0 +1,11 @@
+diff --git a/scripts/deploy.py b/scripts/deploy.py
+index c7d6672..26fa759 100644
+--- a/scripts/deploy.py
++++ b/scripts/deploy.py
+@@ -1,4 +1,6 @@
++import sys
+ import os
++sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
+ from base64 import b64decode
+
+ import algosdk
