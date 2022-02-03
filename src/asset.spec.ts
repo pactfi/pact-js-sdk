@@ -1,9 +1,8 @@
 import { Client } from "./client";
 import {
-  ROOT_ACCOUNT,
-  USER_ACCOUNT,
   createAsset,
   getClientParams,
+  newAccount,
   signSendAndWait,
 } from "./testUtils";
 
@@ -21,19 +20,21 @@ describe("Asset", () => {
 
   it("fetch ASA", async () => {
     const client = new Client(getClientParams());
-    const asset = await client.fetchAsset(1);
+    const account = await newAccount();
+    const assetIndex = await createAsset(account, "JAMNIK", 10);
+    const asset = await client.fetchAsset(assetIndex);
 
-    expect(asset.decimals).toBe(6);
-    expect(asset.index).toBe(1);
-    expect(asset.name).toBe("COIN");
-    expect(asset.unitName).toBe("COIN");
-    expect(asset.ratio.toNumber()).toBe(10 ** 6);
+    expect(asset.decimals).toBe(10);
+    expect(asset.index).toBe(assetIndex);
+    expect(asset.name).toBe("JAMNIK");
+    expect(asset.unitName).toBe("JAMNIK");
+    expect(asset.ratio.toNumber()).toBe(10 ** 10);
   });
 
   it("fetch not existing asset", async () => {
     const client = new Client(getClientParams());
 
-    await expect(client.fetchAsset(123)).rejects.toMatchObject({
+    await expect(client.fetchAsset(99999999)).rejects.toMatchObject({
       status: 404,
       response: { body: { message: "asset does not exist" } },
     });
@@ -41,14 +42,16 @@ describe("Asset", () => {
 
   it("opt in for an asset", async () => {
     const client = new Client(getClientParams());
-    const assetIndex = await createAsset(client, "test", 10, ROOT_ACCOUNT);
+    const creator = await newAccount();
+    const assetIndex = await createAsset(creator, "test", 10);
     const asset = await client.fetchAsset(assetIndex);
 
-    expect(await asset.isOptedIn(USER_ACCOUNT.addr)).toBe(false);
+    const user = await newAccount();
+    expect(await asset.isOptedIn(user.addr)).toBe(false);
 
-    const optInTx = await asset.prepareOptInTx(USER_ACCOUNT.addr);
-    await signSendAndWait(client, optInTx, USER_ACCOUNT);
+    const optInTx = await asset.prepareOptInTx(user.addr);
+    await signSendAndWait(optInTx, user);
 
-    expect(await asset.isOptedIn(USER_ACCOUNT.addr)).toBe(true);
+    expect(await asset.isOptedIn(user.addr)).toBe(true);
   });
 });

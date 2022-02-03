@@ -1,7 +1,14 @@
 import algosdk from "algosdk";
 
-import { Asset } from "./asset";
-import { FetchPoolOptions, Pool } from "./pool";
+import { Asset, fetchAssetByIndex } from "./asset";
+import {
+  ApiListPoolsResponse,
+  FetchPoolOptions,
+  ListPoolsOptions,
+  Pool,
+  fetchPool,
+  listPools,
+} from "./pool";
 
 type AllClientOptions = {
   algod: algosdk.Algodv2;
@@ -24,7 +31,14 @@ export class Client {
   }
 
   fetchAsset(assetIndex: number): Promise<Asset> {
-    return Asset.fetchByIndex(this.algod, assetIndex);
+    return fetchAssetByIndex(this.algod, assetIndex);
+  }
+
+  listPools(options: ListPoolsOptions): Promise<ApiListPoolsResponse> {
+    if (!this.pactApiUrl) {
+      throw Error("No pactApiUrl provided.");
+    }
+    return listPools(this.pactApiUrl, options);
   }
 
   async fetchPool(
@@ -32,7 +46,7 @@ export class Client {
     secondaryAsset: Asset,
     options: FetchPoolOptions = {},
   ): Promise<Pool> {
-    return Pool.fetchPool(this.algod, primaryAsset, secondaryAsset, {
+    return fetchPool(this.algod, primaryAsset, secondaryAsset, {
       pactApiUrl: this.pactApiUrl,
       ...options,
     });

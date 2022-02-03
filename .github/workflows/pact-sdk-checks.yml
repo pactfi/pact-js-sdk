@@ -26,5 +26,5 @@ jobs:
           path: contracts_v1
       - run: cd contracts_v1 && git apply ../contracts.patch
       - run: cd contracts_v1 && poetry install
-      - run: sudo apt-get install expect
+      - run: cd contracts_v1 && docker-compose up -d
       - run: npm run test

@@ -19,12 +19,12 @@ const account = algosdk.mnemonicToSecretKey('<mnemonic>');
 
   const pool = await client.fetchPool(algo, jamnik);
 
-  const txGroup = await pool.prepareSwapTx({
-    address: account.addr,
+  const swap = pool.prepareSwap({
     asset: algo,
     amount: 100_000,
     slippagePct: 2,
   });
+  const txGroup = await swap.prepareTx(account.addr);
   const signedTxs = txGroup.signWithPrivateKey(account.sk)
   const tx = await client.algod.sendRawTransaction(signedTxs).do();
 

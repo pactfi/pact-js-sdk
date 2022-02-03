@@ -1,35 +1,28 @@
+import { exec } from "child_process";
+
 import algosdk from "algosdk";
 
+import { Asset } from "./asset";
 import { Client, ClientOptions } from "./client";
+import { Pool } from "./pool";
 import { TransactionGroup } from "./transactionGroup";
 
-export const EXCHANGE_APP_ID = 3;
-export const EXCHANGE_LIQUIDITY_ID = 6;
+const ROOT_ACCOUNT_MNEMONIC =
+  "jelly swear alcohol hybrid wrong camp prize attack hurdle shaft solar entry inner arm region economy awful inch they squirrel sort renew legend absorb giant";
 
-export const ROOT_ACCOUNT = algosdk.mnemonicToSecretKey(
-  "jelly swear alcohol hybrid wrong camp prize attack hurdle shaft solar entry inner arm region economy awful inch they squirrel sort renew legend absorb giant",
+export const ROOT_ACCOUNT = algosdk.mnemonicToSecretKey(ROOT_ACCOUNT_MNEMONIC);
+
+const algod = new algosdk.Algodv2(
+  "8cec5f4261a2b5ad831a8a701560892cabfe1f0ca00a22a37dee3e1266d726e3",
+  "http://localhost",
+  8787,
 );
-
-export const USER_ACCOUNT = algosdk.mnemonicToSecretKey(
-  "off cushion utility forum little square stairs situate mix cradle over work cable despair powder exile notice urban napkin method fossil junk master abandon fold",
-);
-
-export function getAlgod() {
-  return new algosdk.Algodv2(
-    "8cec5f4261a2b5ad831a8a701560892cabfe1f0ca00a22a37dee3e1266d726e3",
-    "http://localhost",
-    8787,
-  );
-}
 
 export function getClientParams(): ClientOptions {
-  return {
-    algod: getAlgod(),
-  };
+  return { algod };
 }
 
 export async function signSendAndWait(
-  client: Client,
   txToSend: algosdk.Transaction | TransactionGroup,
   account: algosdk.Account,
 ) {
@@ -39,18 +32,17 @@ export async function signSendAndWait(
   } else {
     signedTx = txToSend.signTxn(account.sk);
   }
-  const tx = await client.algod.sendRawTransaction(signedTx).do();
-  await algosdk.waitForConfirmation(client.algod, tx.txId, 2);
+  const tx = await algod.sendRawTransaction(signedTx).do();
+  await algosdk.waitForConfirmation(algod, tx.txId, 2);
   return tx;
 }
 
 export async function createAsset(
-  client: Client,
-  name: string,
-  decimals: number,
   account: algosdk.Account,
+  name = "COIN",
+  decimals = 6,
 ): Promise<number> {
-  const suggestedParams = await client.algod.getTransactionParams().do();
+  const suggestedParams = await algod.getTransactionParams().do();
 
   const txn = algosdk.makeAssetCreateTxnWithSuggestedParams(
     account.addr,
@@ -69,7 +61,100 @@ export async function createAsset(
     suggestedParams,
   );
 
-  const tx = await signSendAndWait(client, txn, account);
-  const ptx = await client.algod.pendingTransactionInformation(tx.txId).do();
+  const tx = await signSendAndWait(txn, account);
+  const ptx = await algod.pendingTransactionInformation(tx.txId).do();
   return ptx["asset-index"];
+}
+
+export async function deployContract(
+  account: algosdk.Account,
+  primaryAsset: Asset,
+  secondaryAsset: Asset,
+): Promise<number> {
+  const mnemonic = algosdk.secretKeyToMnemonic(account.sk);
+  const command = `cd contracts_v1 && ALGOD_URL=http://localhost:8787 ALGOD_TOKEN=8cec5f4261a2b5ad831a8a701560892cabfe1f0ca00a22a37dee3e1266d726e3 DEPLOYER_MNEMONIC="${mnemonic}" poetry run python scripts/deploy.py --primary_asset_id=${primaryAsset.index} --secondary_asset_id=${secondaryAsset.index} --fee_bps=30`;
+
+  return new Promise((resolve, reject) => {
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        reject(error.message);
+        return;
+      }
+      if (stderr) {
+        reject(stderr);
+        return;
+      }
+      const idRegex = /EC ID: (\d+)/;
+      const match = idRegex.exec(stdout);
+      if (!match) {
+        reject("Can't find app id in std out.");
+        return;
+      }
+
+      resolve(parseInt(match[1]));
+    });
+  });
+}
+
+export async function addLiqudity(
+  account: algosdk.Account,
+  pool: Pool,
+  primaryAssetAmount = 10_000,
+  secondaryAssetAmount = 10_000,
+) {
+  const optInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
+  await signSendAndWait(optInTx, account);
+
+  const addLiqTx = await pool.prepareAddLiquidityTx({
+    address: account.addr,
+    primaryAssetAmount,
+    secondaryAssetAmount,
+  });
+  await signSendAndWait(addLiqTx, account);
+  await pool.updatePositions();
+}
+
+export async function newAccount() {
+  // Accounts has a limit of 10 apps and 100 assets. Therefore, we need to create a new account for most of the tests.
+  const account = algosdk.generateAccount();
+  await fundAccountWithAlgos(account, 1_000_000);
+  return account;
+}
+
+export async function fundAccountWithAlgos(
+  account: algosdk.Account,
+  amount: number,
+) {
+  const suggestedParams = await algod.getTransactionParams().do();
+  const tx = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+    from: ROOT_ACCOUNT.addr,
+    to: account.addr,
+    amount: amount,
+    suggestedParams,
+  });
+  await signSendAndWait(tx, ROOT_ACCOUNT);
+}
+
+export type TestPool = {
+  account: algosdk.Account;
+  client: Client;
+  algo: Asset;
+  coin: Asset;
+  pool: Pool;
+};
+
+export async function makeFreshTestPool(): Promise<TestPool> {
+  const account = await newAccount();
+  const client = new Client(getClientParams());
+
+  const algo = await client.fetchAsset(0);
+  const coinIndex = await createAsset(account);
+  const coin = await client.fetchAsset(coinIndex);
+
+  const appId = await deployContract(account, algo, coin);
+  const pool = await client.fetchPool(algo, coin, { appId });
+  const optInTx = await pool.liquidityAsset.prepareOptInTx(ROOT_ACCOUNT.addr);
+  await signSendAndWait(optInTx, ROOT_ACCOUNT);
+
+  return { account, client, algo, coin, pool };
 }

@@ -19,7 +19,7 @@
   },
   "homepage": "https://github.com/pactfi/pact-js-sdk#readme",
   "scripts": {
-    "test": "./prepare_tests.sh && jest",
+    "test": "jest",
     "format": "eslint 'src/**/*.{js,ts}' --fix",
     "lint": "eslint 'src/**/*.{js,ts}'",
     "build": "rollup --config rollup.config.ts --configPlugin typescript"

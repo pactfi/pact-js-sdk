@@ -24,12 +24,12 @@ await algosdk.waitForConfirmation(client.algod, sentOptInTxn.txId, 2);
 const pool = await client.fetchPool(algo, otherCoin);
 
 // Make a swap.
-const txGroup = await pool.prepareSwapTx({
-  address: account.addr,
+const swap = pool.prepareSwap({
   asset: algo,
   amount: 100_000,
   slippagePct: 2,
 });
+const swapTx = await swap.prepareTx(account.addr);
 const signedTxs = txGroup.signWithPrivateKey(account.sk)
 const tx = await client.algod.sendRawTransaction(signedTxs).do();
 
@@ -45,6 +45,7 @@ Development process requires [Pact contracts V1](https://github.com/pactfi/contr
 - `git clone git@github.com:pactfi/contracts_v1.git`
 - `cd contracts_v1`
 - `poetry install`
+- `docker compose up -d`
 - `cd ..`
 
 ## Running tests

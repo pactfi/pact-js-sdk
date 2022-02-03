@@ -20,45 +20,119 @@ export class PoolCalculator {
     );
   }
 
-  get rate() {
+  get primaryAssetPrice() {
     if (this.isEmpty) {
       return new Decimal(0);
     }
-    return this.primaryAssetAmount
-      .div(this.pool.primaryAsset.ratio)
-      .div(this.secondaryAssetAmount.div(this.pool.secondaryAsset.ratio));
+    return this.getPrimaryAssetPrice(
+      this.primaryAssetAmount,
+      this.secondaryAssetAmount,
+    );
   }
 
-  get rateReversed() {
+  get secondaryAssetPrice() {
     if (this.isEmpty) {
       return new Decimal(0);
     }
-    return this.secondaryAssetAmount
+    return this.getSecondaryAssetPrice(
+      this.primaryAssetAmount,
+      this.secondaryAssetAmount,
+    );
+  }
+
+  private getPrimaryAssetPrice(
+    primaryLiqAmount: Decimal,
+    secondaryLiqAmount: Decimal,
+  ): Decimal {
+    if (primaryLiqAmount.isZero() || secondaryLiqAmount.isZero()) {
+      return new Decimal(0);
+    }
+    return secondaryLiqAmount
       .div(this.pool.secondaryAsset.ratio)
-      .div(this.primaryAssetAmount.div(this.pool.primaryAsset.ratio));
+      .div(primaryLiqAmount.div(this.pool.primaryAsset.ratio));
   }
 
-  getMinimumExpected(
+  private getSecondaryAssetPrice(
+    primaryLiqAmount: Decimal,
+    secondaryLiqAmount: Decimal,
+  ): Decimal {
+    if (primaryLiqAmount.isZero() || secondaryLiqAmount.isZero()) {
+      return new Decimal(0);
+    }
+    return primaryLiqAmount
+      .div(this.pool.primaryAsset.ratio)
+      .div(secondaryLiqAmount.div(this.pool.secondaryAsset.ratio));
+  }
+
+  getMinimumAmountIn(
     asset: Asset,
-    amount: number | bigint,
-    slippage: number,
-  ): number {
-    let swap: Decimal;
+    amount: number,
+    slippagePct: number,
+  ): Decimal {
+    const amountIn = this.getAmountIn(asset, amount);
+    return amountIn.sub(amountIn.mul(slippagePct / 100));
+  }
+
+  getGrossAmountIn(asset: Asset, amount: number): Decimal {
     const dAmount = new Decimal(amount as number);
     if (asset === this.pool.primaryAsset) {
-      swap = this.swapPrimary(dAmount);
+      return this.swapPrimaryGrossAmount(dAmount);
     } else {
-      swap = this.swapSecondary(dAmount);
+      return this.swapSecondaryGrossAmount(dAmount);
     }
-    return Math.floor(swap.sub(swap.mul(slippage / 100)).toNumber());
   }
 
-  private swapPrimary(assetAmount: Decimal) {
-    return this.subtractFee(this.swapPrimaryGrossAmount(assetAmount));
+  getNetAmountIn(asset: Asset, amount: number): Decimal {
+    const grossAmount = this.getGrossAmountIn(asset, amount);
+    return this.subtractFee(grossAmount);
   }
 
-  private swapSecondary(assetAmount: Decimal) {
-    return this.subtractFee(this.swapSecondaryGrossAmount(assetAmount));
+  getAmountIn(asset: Asset, amount: number): Decimal {
+    const dAmount = new Decimal(amount as number);
+    let grossAmount: Decimal;
+    if (asset === this.pool.primaryAsset) {
+      grossAmount = this.swapPrimaryGrossAmount(dAmount);
+    } else {
+      grossAmount = this.swapSecondaryGrossAmount(dAmount);
+    }
+    return this.subtractFee(grossAmount);
+  }
+
+  getFee(asset: Asset, amount: number): Decimal {
+    return this.getGrossAmountIn(asset, amount).sub(
+      this.getNetAmountIn(asset, amount),
+    );
+  }
+
+  getAssetPriceAfterLiqChange(
+    asset: Asset,
+    primaryLiqChange: number,
+    secondaryLiqChange: number,
+  ): Decimal {
+    const newPrimaryLiq = this.primaryAssetAmount.add(primaryLiqChange);
+    const newSecondaryLiq = this.secondaryAssetAmount.add(secondaryLiqChange);
+    if (asset === this.pool.primaryAsset) {
+      return this.getPrimaryAssetPrice(newPrimaryLiq, newSecondaryLiq);
+    } else {
+      return this.getSecondaryAssetPrice(newPrimaryLiq, newSecondaryLiq);
+    }
+  }
+
+  getPriceChangePct(
+    asset: Asset,
+    primaryLiqChange: number,
+    secondaryLiqChange: number,
+  ): Decimal {
+    const newPrice = this.getAssetPriceAfterLiqChange(
+      asset,
+      primaryLiqChange,
+      secondaryLiqChange,
+    );
+    const oldPrice =
+      asset === this.pool.primaryAsset
+        ? this.primaryAssetPrice
+        : this.secondaryAssetPrice;
+    return newPrice.div(oldPrice).mul(100).sub(100);
   }
 
   private subtractFee(assetGrossAmount: Decimal) {

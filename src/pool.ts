@@ -1,58 +1,43 @@
 import algosdk from "algosdk";
 
-import { Asset } from "./asset";
+import { Asset, fetchAssetByIndex } from "./asset";
 import { crossFetch } from "./crossFetch";
 import { decode, encodeArray } from "./encoding";
 import { PoolCalculator } from "./poolCalculator";
+import { Swap } from "./swap";
 import { TransactionGroup } from "./transactionGroup";
 import { OperationType } from "./types";
 
 type AppState = {
-  L: number | bigint;
-  A: number | bigint;
-  B: number | bigint;
+  L: number;
+  A: number;
+  B: number;
   LTID: number;
 };
 
 export type PoolPositions = {
-  totalLiquidity: number | bigint;
-  totalPrimary: number | bigint;
-  totalSecondary: number | bigint;
-  rate: string;
-  rateReversed: string;
+  totalLiquidity: number;
+  totalPrimary: number;
+  totalSecondary: number;
+  primaryAssetPrice: number;
+  secondaryAssetPrice: number;
 };
 
 export type AddLiquidityOptions = {
   address: string;
-  primaryAssetAmount: number | bigint;
-  secondaryAssetAmount: number | bigint;
+  primaryAssetAmount: number;
+  secondaryAssetAmount: number;
 };
 
 export type RemoveLiquidityOptions = {
   address: string;
-  amount: number | bigint;
+  amount: number;
 };
 
 export type SwapOptions = {
-  address: string;
   asset: Asset;
-  amount: number | bigint;
+  amount: number;
   slippagePct: number;
-};
-
-type MakeNoopTxOptions = {
-  address: string;
-  suggestedParams: any;
-  fee: number | bigint;
-  args: (OperationType | number)[];
-  extraAsset?: Asset;
-};
-
-type MakeDepositTxOptions = {
-  address: string;
-  asset: Asset;
-  amount: number | bigint;
-  suggestedParams: any;
 };
 
 export type FetchPoolOptions = {
@@ -61,9 +46,161 @@ export type FetchPoolOptions = {
   feeBps?: number;
 };
 
-export class Pool {
-  static poolsCache: any;
+export type ListPoolsOptions = {
+  page?: string;
+  is_verified?: string;
+  creator?: string;
+  primary_asset__algoid?: string;
+  secondary_asset__algoid?: string;
+  primary_asset__unit_name?: string;
+  secondary_asset__unit_name?: string;
+  primary_asset__name?: string;
+  secondary_asset__name?: string;
+};
 
+export type ApiListPoolsResponse = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ApiPool[];
+};
+
+export type ApiPool = {
+  address: string;
+  appid: string;
+  confirmed_round: number;
+  creator: string;
+  fee_amount_7d: string;
+  fee_amount_24h: string;
+  fee_usd_7d: string;
+  fee_usd_24h: string;
+  tvl_usd: string;
+  volume_7d: string;
+  volume_24h: string;
+  id: number;
+  is_verified: boolean;
+  pool_asset: ApiAsset;
+  primary_asset: ApiAsset;
+  secondary_asset: ApiAsset;
+};
+
+export type ApiAsset = {
+  algoid: string;
+  decimals: number;
+  id: number;
+  is_liquidity_token: boolean;
+  is_verified: boolean;
+  name: string;
+  total_amount: string;
+  tvl_usd: string;
+  unit_name: string;
+  volume_7d: string;
+  volume_24h: string;
+};
+
+type MakeNoopTxOptions = {
+  address: string;
+  suggestedParams: any;
+  fee: number;
+  args: (OperationType | number)[];
+  extraAsset?: Asset;
+};
+
+type MakeDepositTxOptions = {
+  address: string;
+  asset: Asset;
+  amount: number;
+  suggestedParams: any;
+};
+
+export function listPools(pactApiUrl: string, options: ListPoolsOptions) {
+  const params = new URLSearchParams(options);
+  return crossFetch(`${pactApiUrl}/api/pools?${params.toString()}`);
+}
+
+export async function fetchAppState(
+  algod: algosdk.Algodv2,
+  appId: number,
+): Promise<AppState> {
+  const appData = await algod.getApplicationByID(appId).do();
+  return parseGlobalState(appData.params["global-state"]);
+}
+
+function parseGlobalState(kv: any) {
+  // Transform algorand key-value schema.
+  const res: any = {};
+  for (const elem of kv) {
+    const key = decode(Buffer.from(elem["key"], "base64"));
+    let val: string | number;
+    if (elem["value"]["type"] == 1) {
+      val = elem["value"]["bytes"];
+    } else {
+      val = elem["value"]["uint"];
+    }
+    res[key] = val;
+  }
+  return res;
+}
+
+export async function fetchPool(
+  algod: algosdk.Algodv2,
+  asset_a: Asset,
+  asset_b: Asset,
+  options: FetchPoolOptions = {},
+): Promise<Pool> {
+  options = { ...options };
+
+  // Make sure that the user didn't mess up assets order.
+  // Primary asset always has lower index.
+  const [primaryAsset, secondaryAsset] = [asset_a, asset_b].sort(
+    (a, b) => a.index - b.index,
+  );
+
+  if (!options.appId) {
+    if (!options.pactApiUrl) {
+      return Promise.reject("Must provide pactifyApiUrl or appId.");
+    }
+    options.appId = await getAppIdFromAssets(
+      options.pactApiUrl,
+      primaryAsset,
+      secondaryAsset,
+    );
+    if (!options.appId) {
+      return Promise.reject(
+        `Cannot find pool for assets ${primaryAsset.index} and ${secondaryAsset.index}.`,
+      );
+    }
+  }
+
+  const appState = await fetchAppState(algod, options.appId);
+  const liquidityAsset = await fetchAssetByIndex(algod, appState.LTID);
+
+  return new Pool(
+    algod,
+    options.appId,
+    primaryAsset,
+    secondaryAsset,
+    liquidityAsset,
+    appState,
+  );
+}
+
+export async function getAppIdFromAssets(
+  pactApiUrl: string,
+  primaryAsset: Asset,
+  secondaryAsset: Asset,
+): Promise<number> {
+  const data = await listPools(pactApiUrl, {
+    primary_asset__algoid: primaryAsset.index.toString(),
+    secondary_asset__algoid: secondaryAsset.index.toString(),
+  });
+  if (data.results.length) {
+    return data.results[0].appid;
+  }
+  return 0;
+}
+
+export class Pool {
   feeBps = 30;
 
   calculator = new PoolCalculator(this);
@@ -81,71 +218,18 @@ export class Pool {
     this.positions = this.stateToPositions(state);
   }
 
-  static async fetchPool(
-    algod: algosdk.Algodv2,
-    asset_a: Asset,
-    asset_b: Asset,
-    options: FetchPoolOptions = {},
-  ): Promise<Pool> {
-    options = { ...options };
-
-    // Make sure that the user didn't mess up assets order.
-    // Primary asset always has lower index.
-    const [primaryAsset, secondaryAsset] = [asset_a, asset_b].sort(
-      (a, b) => a.index - b.index,
-    );
-
-    if (!options.appId) {
-      if (!options.pactApiUrl) {
-        return Promise.reject("Must provide pactifyApiUrl or appId.");
-      }
-      options.appId = await Pool.getAppIdFromAssets(
-        options.pactApiUrl,
-        primaryAsset,
-        secondaryAsset,
-      );
-      if (!options.appId) {
-        return Promise.reject(
-          `Cannot find pool for assets ${primaryAsset.index} and ${secondaryAsset.index}.`,
-        );
-      }
-    }
-
-    const appState = await fetchAppState(algod, options.appId);
-    const liquidityAsset = await Asset.fetchByIndex(algod, appState.LTID);
-
-    return new Pool(
-      algod,
-      options.appId,
-      primaryAsset,
-      secondaryAsset,
-      liquidityAsset,
-      appState,
-    );
-  }
-
-  static async getAppIdFromAssets(
-    pactifyApi: string,
-    primaryAsset: Asset,
-    secondaryAsset: Asset,
-  ): Promise<number> {
-    if (!Pool.poolsCache) {
-      Pool.poolsCache = await crossFetch(`${pactifyApi}/api/pools`);
-    }
-    for (const poolData of Pool.poolsCache) {
-      if (
-        parseInt(poolData.primary_asset.algoid) === primaryAsset.index &&
-        parseInt(poolData.secondary_asset.algoid) === secondaryAsset.index
-      ) {
-        return parseInt(poolData.appid);
-      }
-    }
-
-    return 0;
-  }
-
   getEscrowAddress() {
     return algosdk.getApplicationAddress(this.appId);
+  }
+
+  getOtherAsset(asset: Asset): Asset {
+    if (asset === this.primaryAsset) {
+      return this.secondaryAsset;
+    } else if (asset === this.secondaryAsset) {
+      return this.primaryAsset;
+    } else {
+      throw Error(`Asset with index ${asset.index} is not a pool asset.`);
+    }
   }
 
   async updatePositions(): Promise<PoolPositions> {
@@ -199,26 +283,27 @@ export class Pool {
     return new TransactionGroup([txn1, txn2]);
   }
 
-  async prepareSwapTx(options: SwapOptions): Promise<TransactionGroup> {
+  prepareSwap(options: SwapOptions): Swap {
+    if (this.calculator.isEmpty) {
+      throw Error("Pool is empty and swaps are impossible.");
+    }
+    return new Swap(this, options.asset, options.amount, options.slippagePct);
+  }
+
+  async prepareSwapTx(swap: Swap, address: string) {
     const suggestedParams = await this.algod.getTransactionParams().do();
 
-    const minimumExpected = this.calculator.getMinimumExpected(
-      options.asset,
-      options.amount,
-      options.slippagePct,
-    );
-
     const txn1 = this.makeDepositTx({
-      address: options.address,
-      amount: options.amount,
-      asset: options.asset,
+      address,
+      amount: swap.amount,
+      asset: swap.asset,
       suggestedParams,
     });
     const txn2 = this.makeNoopTx({
-      address: options.address,
+      address,
       suggestedParams,
       fee: 2000,
-      args: ["SWAP", minimumExpected],
+      args: ["SWAP", swap.stats.minimumAmountIn],
     });
 
     return new TransactionGroup([txn1, txn2]);
@@ -270,32 +355,8 @@ export class Pool {
       totalLiquidity: state.L,
       totalPrimary: state.A,
       totalSecondary: state.B,
-      rate: this.calculator.rate.toString(),
-      rateReversed: this.calculator.rateReversed.toString(),
+      primaryAssetPrice: this.calculator.primaryAssetPrice.toNumber(),
+      secondaryAssetPrice: this.calculator.secondaryAssetPrice.toNumber(),
     };
   }
-}
-
-export async function fetchAppState(
-  algod: algosdk.Algodv2,
-  appId: number,
-): Promise<AppState> {
-  const appData = await algod.getApplicationByID(appId).do();
-  return parseGlobalState(appData.params["global-state"]);
-}
-
-function parseGlobalState(kv: any) {
-  // Transform algorand key-value schema.
-  const res: any = {};
-  for (const elem of kv) {
-    const key = decode(Buffer.from(elem["key"], "base64"));
-    let val: string | number | bigint;
-    if (elem["value"]["type"] == 1) {
-      val = elem["value"]["bytes"];
-    } else {
-      val = elem["value"]["uint"];
-    }
-    res[key] = val;
-  }
-  return res;
 }
