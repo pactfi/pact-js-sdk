@@ -3,7 +3,7 @@ import { exec } from "child_process";
 import algosdk from "algosdk";
 
 import { Asset } from "./asset";
-import { Client, ClientOptions } from "./client";
+import { Client } from "./client";
 import { Pool } from "./pool";
 import { TransactionGroup } from "./transactionGroup";
 
@@ -12,26 +12,17 @@ const ROOT_ACCOUNT_MNEMONIC =
 
 export const ROOT_ACCOUNT = algosdk.mnemonicToSecretKey(ROOT_ACCOUNT_MNEMONIC);
 
-const algod = new algosdk.Algodv2(
+export const algod = new algosdk.Algodv2(
   "8cec5f4261a2b5ad831a8a701560892cabfe1f0ca00a22a37dee3e1266d726e3",
   "http://localhost",
   8787,
 );
 
-export function getClientParams(): ClientOptions {
-  return { algod };
-}
-
 export async function signSendAndWait(
   txToSend: algosdk.Transaction | TransactionGroup,
   account: algosdk.Account,
 ) {
-  let signedTx;
-  if (txToSend instanceof TransactionGroup) {
-    signedTx = txToSend.signWithPrivateKey(account.sk);
-  } else {
-    signedTx = txToSend.signTxn(account.sk);
-  }
+  const signedTx = txToSend.signTxn(account.sk);
   const tx = await algod.sendRawTransaction(signedTx).do();
   await algosdk.waitForConfirmation(algod, tx.txId, 2);
   return tx;
@@ -70,9 +61,21 @@ export async function deployContract(
   account: algosdk.Account,
   primaryAsset: Asset,
   secondaryAsset: Asset,
+  options: {
+    feeBps?: number;
+  } = {},
 ): Promise<number> {
   const mnemonic = algosdk.secretKeyToMnemonic(account.sk);
-  const command = `cd contracts_v1 && ALGOD_URL=http://localhost:8787 ALGOD_TOKEN=8cec5f4261a2b5ad831a8a701560892cabfe1f0ca00a22a37dee3e1266d726e3 DEPLOYER_MNEMONIC="${mnemonic}" poetry run python scripts/deploy.py --primary_asset_id=${primaryAsset.index} --secondary_asset_id=${secondaryAsset.index} --fee_bps=30`;
+  const command = `
+    cd contracts_v1 && \\
+    ALGOD_URL=http://localhost:8787 \\
+    ALGOD_TOKEN=8cec5f4261a2b5ad831a8a701560892cabfe1f0ca00a22a37dee3e1266d726e3 \\
+    DEPLOYER_MNEMONIC="${mnemonic}" \\
+    poetry run python scripts/deploy.py \\
+   --primary_asset_id=${primaryAsset.index} \\
+   --secondary_asset_id=${secondaryAsset.index} \\
+   --fee_bps=${options.feeBps ?? 30}
+   `;
 
   return new Promise((resolve, reject) => {
     exec(command, (error, stdout, stderr) => {
@@ -111,13 +114,13 @@ export async function addLiqudity(
     secondaryAssetAmount,
   });
   await signSendAndWait(addLiqTx, account);
-  await pool.updatePositions();
+  await pool.updateState();
 }
 
 export async function newAccount() {
   // Accounts has a limit of 10 apps and 100 assets. Therefore, we need to create a new account for most of the tests.
   const account = algosdk.generateAccount();
-  await fundAccountWithAlgos(account, 1_000_000);
+  await fundAccountWithAlgos(account, 10_000_000);
   return account;
 }
 
@@ -143,18 +146,25 @@ export type TestPool = {
   pool: Pool;
 };
 
-export async function makeFreshTestPool(): Promise<TestPool> {
+export async function makeFreshTestPool(
+  options: {
+    feeBps?: number;
+  } = {},
+): Promise<TestPool> {
   const account = await newAccount();
-  const client = new Client(getClientParams());
+  const client = new Client(algod);
 
   const algo = await client.fetchAsset(0);
   const coinIndex = await createAsset(account);
   const coin = await client.fetchAsset(coinIndex);
 
-  const appId = await deployContract(account, algo, coin);
-  const pool = await client.fetchPool(algo, coin, { appId });
-  const optInTx = await pool.liquidityAsset.prepareOptInTx(ROOT_ACCOUNT.addr);
-  await signSendAndWait(optInTx, ROOT_ACCOUNT);
+  const appId = await deployContract(account, algo, coin, {
+    feeBps: options.feeBps,
+  });
+  const pool = await client.fetchPool(algo, coin, {
+    appId,
+    feeBps: options.feeBps,
+  });
 
   return { account, client, algo, coin, pool };
 }

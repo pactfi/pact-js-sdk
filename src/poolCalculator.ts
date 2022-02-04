@@ -1,4 +1,4 @@
-import Decimal from "decimal.js";
+import D from "decimal.js";
 
 import { Asset } from "./asset";
 import { Pool } from "./pool";
@@ -7,11 +7,11 @@ export class PoolCalculator {
   constructor(private pool: Pool) {}
 
   private get primaryAssetAmount() {
-    return new Decimal(this.pool.state.A as number);
+    return new D(this.pool.internalState.A as number);
   }
 
   private get secondaryAssetAmount() {
-    return new Decimal(this.pool.state.B as number);
+    return new D(this.pool.internalState.B as number);
   }
 
   get isEmpty() {
@@ -22,7 +22,7 @@ export class PoolCalculator {
 
   get primaryAssetPrice() {
     if (this.isEmpty) {
-      return new Decimal(0);
+      return new D(0);
     }
     return this.getPrimaryAssetPrice(
       this.primaryAssetAmount,
@@ -32,7 +32,7 @@ export class PoolCalculator {
 
   get secondaryAssetPrice() {
     if (this.isEmpty) {
-      return new Decimal(0);
+      return new D(0);
     }
     return this.getSecondaryAssetPrice(
       this.primaryAssetAmount,
@@ -40,12 +40,9 @@ export class PoolCalculator {
     );
   }
 
-  private getPrimaryAssetPrice(
-    primaryLiqAmount: Decimal,
-    secondaryLiqAmount: Decimal,
-  ): Decimal {
+  private getPrimaryAssetPrice(primaryLiqAmount: D, secondaryLiqAmount: D): D {
     if (primaryLiqAmount.isZero() || secondaryLiqAmount.isZero()) {
-      return new Decimal(0);
+      return new D(0);
     }
     return secondaryLiqAmount
       .div(this.pool.secondaryAsset.ratio)
@@ -53,28 +50,24 @@ export class PoolCalculator {
   }
 
   private getSecondaryAssetPrice(
-    primaryLiqAmount: Decimal,
-    secondaryLiqAmount: Decimal,
-  ): Decimal {
+    primaryLiqAmount: D,
+    secondaryLiqAmount: D,
+  ): D {
     if (primaryLiqAmount.isZero() || secondaryLiqAmount.isZero()) {
-      return new Decimal(0);
+      return new D(0);
     }
     return primaryLiqAmount
       .div(this.pool.primaryAsset.ratio)
       .div(secondaryLiqAmount.div(this.pool.secondaryAsset.ratio));
   }
 
-  getMinimumAmountIn(
-    asset: Asset,
-    amount: number,
-    slippagePct: number,
-  ): Decimal {
+  getMinimumAmountIn(asset: Asset, amount: number, slippagePct: number): D {
     const amountIn = this.getAmountIn(asset, amount);
     return amountIn.sub(amountIn.mul(slippagePct / 100));
   }
 
-  getGrossAmountIn(asset: Asset, amount: number): Decimal {
-    const dAmount = new Decimal(amount as number);
+  getGrossAmountIn(asset: Asset, amount: number): D {
+    const dAmount = new D(amount as number);
     if (asset === this.pool.primaryAsset) {
       return this.swapPrimaryGrossAmount(dAmount);
     } else {
@@ -82,14 +75,14 @@ export class PoolCalculator {
     }
   }
 
-  getNetAmountIn(asset: Asset, amount: number): Decimal {
+  getNetAmountIn(asset: Asset, amount: number): D {
     const grossAmount = this.getGrossAmountIn(asset, amount);
     return this.subtractFee(grossAmount);
   }
 
-  getAmountIn(asset: Asset, amount: number): Decimal {
-    const dAmount = new Decimal(amount as number);
-    let grossAmount: Decimal;
+  getAmountIn(asset: Asset, amount: number): D {
+    const dAmount = new D(amount as number);
+    let grossAmount: D;
     if (asset === this.pool.primaryAsset) {
       grossAmount = this.swapPrimaryGrossAmount(dAmount);
     } else {
@@ -98,7 +91,7 @@ export class PoolCalculator {
     return this.subtractFee(grossAmount);
   }
 
-  getFee(asset: Asset, amount: number): Decimal {
+  getFee(asset: Asset, amount: number): D {
     return this.getGrossAmountIn(asset, amount).sub(
       this.getNetAmountIn(asset, amount),
     );
@@ -108,7 +101,7 @@ export class PoolCalculator {
     asset: Asset,
     primaryLiqChange: number,
     secondaryLiqChange: number,
-  ): Decimal {
+  ): D {
     const newPrimaryLiq = this.primaryAssetAmount.add(primaryLiqChange);
     const newSecondaryLiq = this.secondaryAssetAmount.add(secondaryLiqChange);
     if (asset === this.pool.primaryAsset) {
@@ -122,7 +115,7 @@ export class PoolCalculator {
     asset: Asset,
     primaryLiqChange: number,
     secondaryLiqChange: number,
-  ): Decimal {
+  ): D {
     const newPrice = this.getAssetPriceAfterLiqChange(
       asset,
       primaryLiqChange,
@@ -135,23 +128,23 @@ export class PoolCalculator {
     return newPrice.div(oldPrice).mul(100).sub(100);
   }
 
-  private subtractFee(assetGrossAmount: Decimal) {
+  private subtractFee(assetGrossAmount: D) {
     return assetGrossAmount
       .mul(10000 - this.pool.feeBps)
       .div(10000)
       .trunc();
   }
 
-  private swapPrimaryGrossAmount(assetAmount: Decimal) {
-    const amount = new Decimal(assetAmount);
+  private swapPrimaryGrossAmount(assetAmount: D) {
+    const amount = new D(assetAmount);
     return amount
       .mul(this.secondaryAssetAmount)
       .div(this.primaryAssetAmount.add(amount))
       .trunc();
   }
 
-  private swapSecondaryGrossAmount(assetAmount: Decimal) {
-    const amount = new Decimal(assetAmount);
+  private swapSecondaryGrossAmount(assetAmount: D) {
+    const amount = new D(assetAmount);
     return amount
       .mul(this.primaryAssetAmount)
       .div(this.secondaryAssetAmount.add(amount))

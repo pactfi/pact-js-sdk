@@ -1,3 +1,5 @@
+import { isBrowser } from "./compat";
+
 export async function crossFetch(url: string): Promise<any> {
   if (isBrowser()) {
     const response = await fetch(url);
@@ -26,8 +28,4 @@ function nodeFetch(url: string): Promise<any> {
       });
     });
   });
-}
-
-function isBrowser(): boolean {
-  return typeof window !== "undefined";
 }

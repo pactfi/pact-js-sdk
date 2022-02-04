@@ -1,5 +1,4 @@
 import algosdk from "algosdk";
-import Decimal from "decimal.js";
 
 export async function fetchAssetByIndex(
   algod: algosdk.Algodv2,
@@ -25,7 +24,7 @@ export async function fetchAssetByIndex(
   asset.name = params.name;
   asset.unitName = params["unit-name"];
   asset.decimals = params.decimals;
-  asset.ratio = new Decimal(10 ** asset.decimals);
+  asset.ratio = 10 ** asset.decimals;
 
   Asset.assetsCache[index] = asset;
   return asset;
@@ -37,7 +36,7 @@ export class Asset {
   public name = "";
   public unitName = "";
   public decimals = 0;
-  public ratio!: Decimal;
+  public ratio = 1;
 
   constructor(private algod: algosdk.Algodv2, public index: number) {}
 

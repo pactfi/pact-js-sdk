@@ -1,21 +1,22 @@
 import algosdk from "algosdk";
 
 import { Asset, fetchAssetByIndex } from "./asset";
+import { b64ToUtf8 } from "./compat";
 import { crossFetch } from "./crossFetch";
-import { decode, encodeArray } from "./encoding";
+import { encodeArray } from "./encoding";
 import { PoolCalculator } from "./poolCalculator";
 import { Swap } from "./swap";
 import { TransactionGroup } from "./transactionGroup";
 import { OperationType } from "./types";
 
-type AppState = {
+type AppInternalState = {
   L: number;
   A: number;
   B: number;
   LTID: number;
 };
 
-export type PoolPositions = {
+export type PoolState = {
   totalLiquidity: number;
   totalPrimary: number;
   totalSecondary: number;
@@ -121,7 +122,7 @@ export function listPools(pactApiUrl: string, options: ListPoolsOptions) {
 export async function fetchAppState(
   algod: algosdk.Algodv2,
   appId: number,
-): Promise<AppState> {
+): Promise<AppInternalState> {
   const appData = await algod.getApplicationByID(appId).do();
   return parseGlobalState(appData.params["global-state"]);
 }
@@ -130,7 +131,7 @@ function parseGlobalState(kv: any) {
   // Transform algorand key-value schema.
   const res: any = {};
   for (const elem of kv) {
-    const key = decode(Buffer.from(elem["key"], "base64"));
+    const key = b64ToUtf8(elem["key"]);
     let val: string | number;
     if (elem["value"]["type"] == 1) {
       val = elem["value"]["bytes"];
@@ -175,7 +176,7 @@ export async function fetchPool(
   const appState = await fetchAppState(algod, options.appId);
   const liquidityAsset = await fetchAssetByIndex(algod, appState.LTID);
 
-  return new Pool(
+  const pool = new Pool(
     algod,
     options.appId,
     primaryAsset,
@@ -183,6 +184,10 @@ export async function fetchPool(
     liquidityAsset,
     appState,
   );
+
+  pool.feeBps = options.feeBps ?? 30;
+
+  return pool;
 }
 
 export async function getAppIdFromAssets(
@@ -205,7 +210,7 @@ export class Pool {
 
   calculator = new PoolCalculator(this);
 
-  positions: PoolPositions;
+  state = this.parseInternalState(this.internalState);
 
   constructor(
     private algod: algosdk.Algodv2,
@@ -213,10 +218,8 @@ export class Pool {
     public primaryAsset: Asset,
     public secondaryAsset: Asset,
     public liquidityAsset: Asset,
-    public state: AppState,
-  ) {
-    this.positions = this.stateToPositions(state);
-  }
+    public internalState: AppInternalState,
+  ) {}
 
   getEscrowAddress() {
     return algosdk.getApplicationAddress(this.appId);
@@ -232,10 +235,10 @@ export class Pool {
     }
   }
 
-  async updatePositions(): Promise<PoolPositions> {
-    this.state = await fetchAppState(this.algod, this.appId);
-    this.positions = this.stateToPositions(this.state);
-    return this.positions;
+  async updateState(): Promise<PoolState> {
+    this.internalState = await fetchAppState(this.algod, this.appId);
+    this.state = this.parseInternalState(this.internalState);
+    return this.state;
   }
 
   async prepareAddLiquidityTx(options: AddLiquidityOptions) {
@@ -284,9 +287,6 @@ export class Pool {
   }
 
   prepareSwap(options: SwapOptions): Swap {
-    if (this.calculator.isEmpty) {
-      throw Error("Pool is empty and swaps are impossible.");
-    }
     return new Swap(this, options.asset, options.amount, options.slippagePct);
   }
 
@@ -295,15 +295,15 @@ export class Pool {
 
     const txn1 = this.makeDepositTx({
       address,
-      amount: swap.amount,
-      asset: swap.asset,
+      amount: swap.amountOut,
+      asset: swap.assetOut,
       suggestedParams,
     });
     const txn2 = this.makeNoopTx({
       address,
       suggestedParams,
       fee: 2000,
-      args: ["SWAP", swap.stats.minimumAmountIn],
+      args: ["SWAP", swap.effect.minimumAmountIn],
     });
 
     return new TransactionGroup([txn1, txn2]);
@@ -350,7 +350,7 @@ export class Pool {
     });
   }
 
-  private stateToPositions(state: AppState): PoolPositions {
+  private parseInternalState(state: AppInternalState): PoolState {
     return {
       totalLiquidity: state.L,
       totalPrimary: state.A,

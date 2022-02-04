@@ -1,4 +1,5 @@
 import typescript from "@rollup/plugin-typescript";
+import nodeResolve from "rollup-plugin-node-resolve";
 import { terser } from "rollup-plugin-terser";
 
 import pkg from "./package.json";
@@ -11,7 +12,7 @@ export default [
   {
     // UMD
     input,
-    plugins: [typescript(), terser()],
+    plugins: [typescript(), nodeResolve(), terser()],
     output: {
       file: `dist/${pkg.name}.min.js`,
       format: "umd",
@@ -24,7 +25,7 @@ export default [
         "decimal.js": "decimal",
       },
     },
-    external,
+    external: ["algosdk"],
   },
 
   // ESM

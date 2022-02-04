@@ -11,7 +11,6 @@ import {
 } from "./pool";
 
 type AllClientOptions = {
-  algod: algosdk.Algodv2;
   pactApiUrl?: string;
 };
 
@@ -22,10 +21,9 @@ const DEFAULT_CLIENT_OPTIONS: ClientOptions = {
 };
 
 export class Client {
-  algod!: algosdk.Algodv2;
   pactApiUrl?: string;
 
-  constructor(options: ClientOptions) {
+  constructor(public algod: algosdk.Algodv2, options: ClientOptions = {}) {
     options = { ...DEFAULT_CLIENT_OPTIONS, ...options };
     Object.assign(this, options);
   }
@@ -34,7 +32,7 @@ export class Client {
     return fetchAssetByIndex(this.algod, assetIndex);
   }
 
-  listPools(options: ListPoolsOptions): Promise<ApiListPoolsResponse> {
+  listPools(options: ListPoolsOptions = {}): Promise<ApiListPoolsResponse> {
     if (!this.pactApiUrl) {
       throw Error("No pactApiUrl provided.");
     }

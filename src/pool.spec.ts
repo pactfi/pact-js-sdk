@@ -2,7 +2,7 @@ import { Asset } from "./asset";
 import { Client } from "./client";
 import {
   TestPool,
-  getClientParams,
+  algod,
   makeFreshTestPool,
   signSendAndWait,
 } from "./testUtils";
@@ -41,8 +41,23 @@ describe("Pool", () => {
     apiSecondaryAssetIndex = testPool.coin.index;
   });
 
+  it("listing pools", async () => {
+    const client = new Client(algod);
+
+    const pools = await client.listPools();
+    expect(pools).toEqual({
+      results: [
+        {
+          appid: apiAppId,
+          primary_asset: { algoid: "0" },
+          secondary_asset: { algoid: apiSecondaryAssetIndex },
+        },
+      ],
+    });
+  });
+
   it("fetching pool from api", async () => {
-    const client = new Client(getClientParams());
+    const client = new Client(algod);
 
     const pool = await client.fetchPool(testPool.algo, testPool.coin);
 
@@ -55,7 +70,7 @@ describe("Pool", () => {
 
   it("fetching not existing pool from api", async () => {
     apiAppId = 0;
-    const client = new Client(getClientParams());
+    const client = new Client(algod);
 
     const coin = new Asset(client.algod, 999999999);
 
@@ -65,7 +80,7 @@ describe("Pool", () => {
   });
 
   it("fetching pool by providing appid", async () => {
-    const client = new Client(getClientParams());
+    const client = new Client(algod);
 
     const pool = await client.fetchPool(testPool.algo, testPool.coin, {
       appId: testPool.pool.appId,
@@ -79,7 +94,7 @@ describe("Pool", () => {
   });
 
   it("fetching pool with reversed assets", async () => {
-    const client = new Client(getClientParams());
+    const client = new Client(algod);
 
     // We reverse the assets order here.
     const pool = await client.fetchPool(testPool.coin, testPool.algo, {
@@ -97,7 +112,7 @@ describe("Pool", () => {
 it("Pool e2e scenario", async () => {
   const { account, algo, coin, pool } = await makeFreshTestPool();
 
-  expect(pool.positions).toEqual({
+  expect(pool.state).toEqual({
     totalLiquidity: 0,
     totalPrimary: 0,
     totalSecondary: 0,
@@ -116,8 +131,8 @@ it("Pool e2e scenario", async () => {
     secondaryAssetAmount: 100_000,
   });
   await signSendAndWait(addLiqTx, account);
-  await pool.updatePositions();
-  expect(pool.positions).toEqual({
+  await pool.updateState();
+  expect(pool.state).toEqual({
     totalLiquidity: 100_000,
     totalPrimary: 100_000,
     totalSecondary: 100_000,
@@ -125,14 +140,14 @@ it("Pool e2e scenario", async () => {
     secondaryAssetPrice: 1,
   });
 
-  // // Remove liquidity.
+  // Remove liquidity.
   const removeLiqTx = await pool.prepareRemoveLiquidityTx({
     address: account.addr,
     amount: 10_000,
   });
   await signSendAndWait(removeLiqTx, account);
-  await pool.updatePositions();
-  expect(pool.positions).toEqual({
+  await pool.updateState();
+  expect(pool.state).toEqual({
     totalLiquidity: 90_000,
     totalPrimary: 90_000,
     totalSecondary: 90_000,
@@ -140,7 +155,7 @@ it("Pool e2e scenario", async () => {
     secondaryAssetPrice: 1,
   });
 
-  // // Swap algo.
+  // Swap algo.
   const algoSwap = await pool.prepareSwap({
     asset: algo,
     amount: 20_000,
@@ -148,14 +163,14 @@ it("Pool e2e scenario", async () => {
   });
   const algoSwapTx = await algoSwap.prepareTx(account.addr);
   await signSendAndWait(algoSwapTx, account);
-  await pool.updatePositions();
-  expect(pool.positions.totalLiquidity).toBe(90_000);
-  expect(pool.positions.totalPrimary > 100_000).toBe(true);
-  expect(pool.positions.totalSecondary < 100_000).toBe(true);
-  expect(pool.positions.primaryAssetPrice < 1).toBe(true);
-  expect(pool.positions.secondaryAssetPrice > 1).toBe(true);
+  await pool.updateState();
+  expect(pool.state.totalLiquidity).toBe(90_000);
+  expect(pool.state.totalPrimary > 100_000).toBe(true);
+  expect(pool.state.totalSecondary < 100_000).toBe(true);
+  expect(pool.state.primaryAssetPrice < 1).toBe(true);
+  expect(pool.state.secondaryAssetPrice > 1).toBe(true);
 
-  // // Swap secondary.
+  // Swap secondary.
   const coinSwap = await pool.prepareSwap({
     asset: coin,
     amount: 50_000,
@@ -163,10 +178,10 @@ it("Pool e2e scenario", async () => {
   });
   const coinSwapTx = await coinSwap.prepareTx(account.addr);
   await signSendAndWait(coinSwapTx, account);
-  await pool.updatePositions();
-  expect(pool.positions.totalLiquidity).toBe(90_000);
-  expect(pool.positions.totalPrimary < 100_000).toBe(true);
-  expect(pool.positions.totalSecondary > 100_000).toBe(true);
-  expect(pool.positions.primaryAssetPrice > 1).toBe(true);
-  expect(pool.positions.secondaryAssetPrice < 1).toBe(true);
+  await pool.updateState();
+  expect(pool.state.totalLiquidity).toBe(90_000);
+  expect(pool.state.totalPrimary < 100_000).toBe(true);
+  expect(pool.state.totalSecondary > 100_000).toBe(true);
+  expect(pool.state.primaryAssetPrice > 1).toBe(true);
+  expect(pool.state.secondaryAssetPrice < 1).toBe(true);
 });

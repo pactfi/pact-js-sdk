@@ -1,15 +1,14 @@
 const { default: algosdk } = require('algosdk');
-const pact = require('../dist/pactifysdk.cjs');
+const pact = require('../dist/pactsdk.cjs');
 
 const account = algosdk.mnemonicToSecretKey('<mnemonic>');
 
 (async function() {
-  const client = new pact.Client({
-    algod: new algosdk.Algodv2(), // provide options
-  })
+  const algod = new algosdk.Algodv2();  // provide options
+  const client = new pact.Client(algod);
 
-  const algo = await client.fetchAsset(0)
-  const jamnik = await client.fetchAsset(41409282)
+  const algo = await client.fetchAsset(0);
+  const jamnik = await client.fetchAsset(41409282);
 
   const pool = await client.fetchPool(algo, jamnik);
 
@@ -19,13 +18,13 @@ const account = algosdk.mnemonicToSecretKey('<mnemonic>');
   console.log(`OptIn transaction ${sentOptInTxn.txId}`);
   await algosdk.waitForConfirmation(client.algod, sentOptInTxn.txId, 2);
 
-  const txGroup = await pool.prepareAddLiquidityTx({
+  const addLiqTx = await pool.prepareAddLiquidityTx({
     address: account.addr,
     primaryAssetAmount: 1_000_000,
     secondaryAssetAmount: 500_000,
   });
-  const signedTxs = txGroup.signWithPrivateKey(account.sk)
-  const tx = await client.algod.sendRawTransaction(signedTxs).do();
+  const signedTx = addLiqTx.signTxn(account.sk)
+  const sentTx = await client.algod.sendRawTransaction(signedTx).do();
 
-  console.log(`Transaction ${tx.txId}`);
+  console.log(`Transaction ${sentTx.txId}`);
 })();

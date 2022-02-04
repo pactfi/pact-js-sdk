@@ -2,7 +2,7 @@ import { Asset } from "./asset";
 import { Pool } from "./pool";
 import { TransactionGroup } from "./transactionGroup";
 
-export type SwapStats = {
+export type SwapEffect = {
   amountIn: number;
   amountOut: number;
   minimumAmountIn: number;
@@ -15,26 +15,47 @@ export type SwapStats = {
 };
 
 export class Swap {
-  stats: SwapStats;
+  effect: SwapEffect;
+
+  assetIn = this.pool.getOtherAsset(this.assetOut);
 
   constructor(
-    private pool: Pool,
-    public asset: Asset,
-    public amount: number,
+    public pool: Pool,
+    public assetOut: Asset,
+    public amountOut: number,
     public slippagePct: number,
   ) {
-    const amountOut = amount;
+    this.validateSwap();
+    this.effect = this.buildEffect();
+  }
+
+  prepareTx(address: string): Promise<TransactionGroup> {
+    return this.pool.prepareSwapTx(this, address);
+  }
+
+  private validateSwap() {
+    if (this.slippagePct < 0 || this.slippagePct > 100) {
+      throw Error("Splippage must be between 0 and 100");
+    }
+    if (this.pool.calculator.isEmpty) {
+      throw Error("Pool is empty and swaps are impossible.");
+    }
+  }
+
+  private buildEffect() {
     const amountIn = Math.floor(
-      this.pool.calculator.getAmountIn(asset, amount).toNumber(),
+      this.pool.calculator
+        .getAmountIn(this.assetOut, this.amountOut)
+        .toNumber(),
     );
 
     let primaryLiqChange, secondaryLiqChange: number;
-    if (asset === pool.primaryAsset) {
-      primaryLiqChange = amountOut;
+    if (this.assetOut === this.pool.primaryAsset) {
+      primaryLiqChange = this.amountOut;
       secondaryLiqChange = -amountIn;
     } else {
       primaryLiqChange = -amountIn;
-      secondaryLiqChange = amount;
+      secondaryLiqChange = this.amountOut;
     }
 
     const primaryAssetPriceAfterSwap = this.pool.calculator
@@ -52,35 +73,37 @@ export class Swap {
       )
       .toNumber();
 
-    this.stats = {
-      amountOut,
+    return {
+      amountOut: this.amountOut,
       amountIn,
       minimumAmountIn: Math.floor(
         this.pool.calculator
-          .getMinimumAmountIn(asset, amount, slippagePct)
+          .getMinimumAmountIn(this.assetOut, this.amountOut, this.slippagePct)
           .toNumber(),
       ),
       price: this.pool.calculator
-        .getGrossAmountIn(asset, amount)
-        .div(amountOut)
+        .getGrossAmountIn(this.assetOut, this.amountOut)
+        .div(this.amountOut)
         .toNumber(),
       primaryAssetPriceAfterSwap,
       secondaryAssetPriceAfterSwap,
       primaryAssetPriceChangePct: this.pool.calculator
-        .getPriceChangePct(asset, primaryLiqChange, secondaryLiqChange)
-        .toNumber(),
-      secondaryAssetPriceChangePct: this.pool.calculator
         .getPriceChangePct(
-          this.pool.getOtherAsset(asset),
+          this.pool.primaryAsset,
           primaryLiqChange,
           secondaryLiqChange,
         )
         .toNumber(),
-      fee: Math.round(this.pool.calculator.getFee(asset, amount).toNumber()),
+      secondaryAssetPriceChangePct: this.pool.calculator
+        .getPriceChangePct(
+          this.pool.secondaryAsset,
+          primaryLiqChange,
+          secondaryLiqChange,
+        )
+        .toNumber(),
+      fee: Math.round(
+        this.pool.calculator.getFee(this.assetOut, this.amountOut).toNumber(),
+      ),
     };
-  }
-
-  prepareTx(address: string): Promise<TransactionGroup> {
-    return this.pool.prepareSwapTx(this, address);
   }
 }

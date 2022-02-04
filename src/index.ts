@@ -4,7 +4,7 @@ export * from "./swap";
 export { Asset } from "./asset";
 export {
   Pool,
-  PoolPositions,
+  PoolState,
   AddLiquidityOptions,
   RemoveLiquidityOptions,
   SwapOptions,

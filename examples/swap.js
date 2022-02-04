@@ -1,12 +1,11 @@
 const { default: algosdk } = require('algosdk');
-const pact = require('../dist/pactifysdk.cjs');
+const pact = require('../dist/pactsdk.cjs');
 
 const account = algosdk.mnemonicToSecretKey('<mnemonic>');
 
 (async function() {
-  const client = new pact.Client({
-    algod: new algosdk.Algodv2(), // provide options
-  })
+  const algod = new algosdk.Algodv2();
+  const client = new pact.Client(algod);
 
   const algo = await client.fetchAsset(0)
   const jamnik = await client.fetchAsset(41409282)
@@ -24,9 +23,9 @@ const account = algosdk.mnemonicToSecretKey('<mnemonic>');
     amount: 100_000,
     slippagePct: 2,
   });
-  const txGroup = await swap.prepareTx(account.addr);
-  const signedTxs = txGroup.signWithPrivateKey(account.sk)
-  const tx = await client.algod.sendRawTransaction(signedTxs).do();
+  const swapTx = await swap.prepareTx(account.addr);
+  const signedTxs = swapTx.signTxn(account.sk)
+  const sentTx = await client.algod.sendRawTransaction(signedTxs).do();
 
-  console.log(`Transaction ${tx.txId}`);
+  console.log(`Transaction ${sentTx.txId}`);
 })();

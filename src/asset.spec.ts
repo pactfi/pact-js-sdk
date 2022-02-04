@@ -1,25 +1,20 @@
 import { Client } from "./client";
-import {
-  createAsset,
-  getClientParams,
-  newAccount,
-  signSendAndWait,
-} from "./testUtils";
+import { algod, createAsset, newAccount, signSendAndWait } from "./testUtils";
 
 describe("Asset", () => {
   it("fetch ALGO", async () => {
-    const client = new Client(getClientParams());
+    const client = new Client(algod);
     const asset = await client.fetchAsset(0);
 
     expect(asset.decimals).toBe(6);
     expect(asset.index).toBe(0);
     expect(asset.name).toBe("Algo");
     expect(asset.unitName).toBe("ALGO");
-    expect(asset.ratio.toNumber()).toBe(10 ** 6);
+    expect(asset.ratio).toBe(10 ** 6);
   });
 
   it("fetch ASA", async () => {
-    const client = new Client(getClientParams());
+    const client = new Client(algod);
     const account = await newAccount();
     const assetIndex = await createAsset(account, "JAMNIK", 10);
     const asset = await client.fetchAsset(assetIndex);
@@ -28,11 +23,11 @@ describe("Asset", () => {
     expect(asset.index).toBe(assetIndex);
     expect(asset.name).toBe("JAMNIK");
     expect(asset.unitName).toBe("JAMNIK");
-    expect(asset.ratio.toNumber()).toBe(10 ** 10);
+    expect(asset.ratio).toBe(10 ** 10);
   });
 
   it("fetch not existing asset", async () => {
-    const client = new Client(getClientParams());
+    const client = new Client(algod);
 
     await expect(client.fetchAsset(99999999)).rejects.toMatchObject({
       status: 404,
@@ -41,7 +36,7 @@ describe("Asset", () => {
   });
 
   it("opt in for an asset", async () => {
-    const client = new Client(getClientParams());
+    const client = new Client(algod);
     const creator = await newAccount();
     const assetIndex = await createAsset(creator, "test", 10);
     const asset = await client.fetchAsset(assetIndex);
