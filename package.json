@@ -2,12 +2,13 @@
   "name": "pactsdk",
   "version": "0.0.1",
   "description": "JavaScript SDK for Pact smart contracts",
-  "main": "dist/pactsdk.cjs",
-  "module": "dist/index.js",
+  "main": "dist/cjs/pactsdk.js",
+  "module": "dist/esm/index.js",
+  "browser": "dist/browser/pactsdk.min.js",
+  "types": "dist/esm/index.d.ts",
   "files": [
     "dist"
   ],
-  "typings": "dist/index.d.ts",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/pactfi/pact-js-sdk.git"

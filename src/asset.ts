@@ -33,8 +33,8 @@ export async function fetchAssetByIndex(
 export class Asset {
   static assetsCache: Record<number, Asset> = {};
 
-  public name = "";
-  public unitName = "";
+  public name? = "";
+  public unitName? = "";
   public decimals = 0;
   public ratio = 1;
 

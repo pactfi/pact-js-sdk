@@ -1,7 +1,7 @@
 import algosdk from "algosdk";
 import D, { Decimal } from "decimal.js";
 
-import { Client } from "./client";
+import { PactClient } from "./client";
 import { PoolState } from "./pool";
 import { Swap } from "./swap";
 import {
@@ -9,9 +9,9 @@ import {
   algod,
   createAsset,
   deployContract,
-  makeFreshTestPool,
+  makeFreshTestBed,
   newAccount,
-  signSendAndWait,
+  signAndSend,
 } from "./testUtils";
 
 async function testSwap(
@@ -21,17 +21,19 @@ async function testSwap(
   amountOut: number,
   account: algosdk.Account,
 ) {
-  assertStats(swap, primaryLiq, secondaryLiq, amountOut);
+  assertSwapEffect(swap, primaryLiq, secondaryLiq, amountOut);
 
+  // Perform the swap.
   const oldState = swap.pool.state;
   const swapTx = await swap.prepareTx(account.addr);
-  await signSendAndWait(swapTx, account);
+  await signAndSend(swapTx, account);
   await swap.pool.updateState();
 
+  // Compare the simulated effect with what really happened on the blockchain.
   assertPoolState(swap, oldState, swap.pool.state);
 }
 
-function assertStats(
+function assertSwapEffect(
   swap: Swap,
   primaryLiq: number,
   secondaryLiq: number,
@@ -66,12 +68,16 @@ function assertStats(
       amountIn.sub(amountIn.mul(swap.slippagePct).div(100)).toNumber(),
     ),
     fee: Math.round(grossAmountIn.sub(amountIn).toNumber()),
-    price: grossAmountIn.div(dAmountOut).toNumber(),
+    price: grossAmountIn
+      .div(swap.assetIn.ratio)
+      .div(dAmountOut.div(swap.assetOut.ratio))
+      .toNumber(),
   });
 
-  expect(swap.effect.amountOut * swap.effect.price - swap.effect.fee).toBe(
-    swap.effect.amountIn,
-  );
+  const diffRatio = 10 ** (swap.assetIn.decimals - swap.assetOut.decimals);
+  expect(
+    swap.effect.amountOut * swap.effect.price * diffRatio - swap.effect.fee,
+  ).toBe(swap.effect.amountIn);
 }
 
 function assertPoolState(swap: Swap, oldState: PoolState, newState: PoolState) {
@@ -115,7 +121,7 @@ function assertPoolState(swap: Swap, oldState: PoolState, newState: PoolState) {
 
 describe("swap", () => {
   it("empty liquidity", async () => {
-    const { algo, pool } = await makeFreshTestPool();
+    const { algo, pool } = await makeFreshTestBed();
 
     expect(() =>
       pool.prepareSwap({
@@ -126,8 +132,22 @@ describe("swap", () => {
     ).toThrow("Pool is empty and swaps are impossible.");
   });
 
+  it("asset not in the pool", async () => {
+    const { pact, pool, account } = await makeFreshTestBed();
+    const shitcoinIndex = await createAsset(account);
+    const shitcoin = await pact.fetchAsset(shitcoinIndex);
+
+    expect(() =>
+      pool.prepareSwap({
+        amount: 1000,
+        asset: shitcoin,
+        slippagePct: 10,
+      }),
+    ).toThrow(`Asset ${shitcoin.index} not in the pool`);
+  });
+
   it("primary with equal liquidity", async () => {
-    const { account, algo, coin, pool } = await makeFreshTestPool();
+    const { account, algo, coin, pool } = await makeFreshTestBed();
     const [primaryLiq, secondaryLiq, amount] = [20_000, 20_000, 1_000];
     await addLiqudity(account, pool, primaryLiq, secondaryLiq);
 
@@ -145,7 +165,7 @@ describe("swap", () => {
   });
 
   it("primary with not equal liquidity", async () => {
-    const { account, algo, pool } = await makeFreshTestPool();
+    const { account, algo, pool } = await makeFreshTestBed();
     const [primaryLiq, secondaryLiq, amount] = [20_000, 25_000, 1_000];
     await addLiqudity(account, pool, primaryLiq, secondaryLiq);
 
@@ -159,7 +179,7 @@ describe("swap", () => {
   });
 
   it("secondary with equal liquidity", async () => {
-    const { account, coin, pool } = await makeFreshTestPool();
+    const { account, coin, pool } = await makeFreshTestBed();
     const [primaryLiq, secondaryLiq, amount] = [20_000, 20_000, 1_000];
     await addLiqudity(account, pool, primaryLiq, secondaryLiq);
 
@@ -173,7 +193,7 @@ describe("swap", () => {
   });
 
   it("secondary with not equal liquidity", async () => {
-    const { account, coin, pool } = await makeFreshTestPool();
+    const { account, coin, pool } = await makeFreshTestBed();
     const [primaryLiq, secondaryLiq, amount] = [25_000, 20_000, 1_000];
     await addLiqudity(account, pool, primaryLiq, secondaryLiq);
 
@@ -187,23 +207,23 @@ describe("swap", () => {
   });
 
   it("with custom fee bps", async () => {
-    const testPoolA = await makeFreshTestPool({ feeBps: 10 });
-    const testPoolB = await makeFreshTestPool({ feeBps: 2000 });
+    const TestBedA = await makeFreshTestBed({ feeBps: 10 });
+    const TestBedB = await makeFreshTestBed({ feeBps: 2000 });
 
-    expect(testPoolA.pool.feeBps).toBe(10);
-    expect(testPoolB.pool.feeBps).toBe(2000);
+    expect(TestBedA.pool.feeBps).toBe(10);
+    expect(TestBedB.pool.feeBps).toBe(2000);
 
-    await addLiqudity(testPoolA.account, testPoolA.pool, 20_000, 20_000);
-    await addLiqudity(testPoolB.account, testPoolB.pool, 20_000, 20_000);
+    await addLiqudity(TestBedA.account, TestBedA.pool, 20_000, 20_000);
+    await addLiqudity(TestBedB.account, TestBedB.pool, 20_000, 20_000);
 
-    const swapA = testPoolA.pool.prepareSwap({
+    const swapA = TestBedA.pool.prepareSwap({
       amount: 10_000,
-      asset: testPoolA.algo,
+      asset: TestBedA.algo,
       slippagePct: 10,
     });
-    const swapB = testPoolB.pool.prepareSwap({
+    const swapB = TestBedB.pool.prepareSwap({
       amount: 10_000,
-      asset: testPoolB.algo,
+      asset: TestBedB.algo,
       slippagePct: 10,
     });
 
@@ -211,26 +231,26 @@ describe("swap", () => {
     expect(swapB.effect.fee).toBeGreaterThan(swapA.effect.fee);
     expect(swapB.effect.amountIn).toBeLessThan(swapA.effect.amountIn);
 
-    // Perform the swaps and check if the stats matches what really happened in the app.
+    // Perform the swaps and check if the simulated effect matches what really happened in the blockchain.
 
-    const swapATx = await swapA.prepareTx(testPoolA.account.addr);
-    await signSendAndWait(swapATx, testPoolA.account);
-    await testPoolA.pool.updateState();
+    const swapATx = await swapA.prepareTx(TestBedA.account.addr);
+    await signAndSend(swapATx, TestBedA.account);
+    await TestBedA.pool.updateState();
 
-    const swapBTx = await swapB.prepareTx(testPoolB.account.addr);
-    await signSendAndWait(swapBTx, testPoolB.account);
-    await testPoolB.pool.updateState();
+    const swapBTx = await swapB.prepareTx(TestBedB.account.addr);
+    await signAndSend(swapBTx, TestBedB.account);
+    await TestBedB.pool.updateState();
 
-    expect(testPoolA.pool.state.totalSecondary).toBe(
+    expect(TestBedA.pool.state.totalSecondary).toBe(
       20_000 - swapA.effect.amountIn,
     );
-    expect(testPoolB.pool.state.totalSecondary).toBe(
+    expect(TestBedB.pool.state.totalSecondary).toBe(
       20_000 - swapB.effect.amountIn,
     );
   });
 
   it("with different slippage", async () => {
-    const { account, algo, pool } = await makeFreshTestPool();
+    const { account, algo, pool } = await makeFreshTestBed();
     await addLiqudity(account, pool, 20_000, 20_000);
 
     expect(() =>
@@ -290,15 +310,15 @@ describe("swap", () => {
       slippagePct: 0,
     });
     const swapTx = await swap.prepareTx(account.addr);
-    await signSendAndWait(swapTx, account);
+    await signAndSend(swapTx, account);
 
     // Swap A and B should fail because slippage is too low.
     const swapATx = await swapA.prepareTx(account.addr);
-    expect(() => signSendAndWait(swapATx, account)).rejects.toMatchObject({
+    expect(() => signAndSend(swapATx, account)).rejects.toMatchObject({
       status: 400,
     });
     const swapBTx = await swapB.prepareTx(account.addr);
-    expect(() => signSendAndWait(swapBTx, account)).rejects.toMatchObject({
+    expect(() => signAndSend(swapBTx, account)).rejects.toMatchObject({
       status: 400,
     });
 
@@ -307,7 +327,7 @@ describe("swap", () => {
 
     // Swap C and D should pass;
     const swapCTx = await swapC.prepareTx(account.addr);
-    await signSendAndWait(swapCTx, account);
+    await signAndSend(swapCTx, account);
     await pool.updateState();
     const swappedCAmount =
       20_000 - swap.effect.amountIn - pool.state.totalSecondary;
@@ -315,7 +335,7 @@ describe("swap", () => {
     expect(swappedCAmount).toBeGreaterThan(swapC.effect.minimumAmountIn);
 
     const swapDTx = await swapD.prepareTx(account.addr);
-    await signSendAndWait(swapDTx, account);
+    await signAndSend(swapDTx, account);
     await pool.updateState();
     const swappedDAmount =
       20_000 -
@@ -328,16 +348,16 @@ describe("swap", () => {
 
   it("ASA to ASA", async () => {
     const account = await newAccount();
-    const client = new Client(algod);
+    const pact = new PactClient(algod);
 
     const coinAIndex = await createAsset(account, "COIN_A", 3);
-    const coinA = await client.fetchAsset(coinAIndex);
+    const coinA = await pact.fetchAsset(coinAIndex);
 
     const coinBIndex = await createAsset(account, "COIN_B", 2);
-    const coinB = await client.fetchAsset(coinBIndex);
+    const coinB = await pact.fetchAsset(coinBIndex);
 
     const appId = await deployContract(account, coinA, coinB);
-    const pool = await client.fetchPool(coinA, coinB, { appId });
+    const pool = await pact.fetchPool(coinA, coinB, { appId });
 
     await addLiqudity(account, pool, 20_000, 20_000);
     await pool.updateState();

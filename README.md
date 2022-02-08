@@ -14,36 +14,43 @@ What is covered by the library:
 
 Signing and sending transactions is not covered by the library. The provided examples use algosdk directly to send the transactions.
 
+# Installation
+
+There's no public NPM package yet. See [Building](#building) for installing a local build.
+
 # Basic usage
 
 **CAUTION** - The library uses integers for asset amounts e.g. microalgos instead of algos so if you want to send 1 algo, you need to specify it as 1_000_000.
 
-Create a client.
+Create a Pact client.
 
 ```js
+import algosdk from "algosdk";
+import pactsdk from "pactsdk";
+
 const algod = new algosdk.Algodv2(token, url, port);
-const client = new pact.Client(algod);
+const pact = new pactsdk.PactClient(algod);
 ```
 
 Optionally you can specify custom Pact API url. By default it directs to production API.
 
 ```js
-const client = new pact.Client(algod, {pactApiUrl: "https://api.testnet.pact.fi"});
+const pact = new pactsdk.PactClient(algod, {pactApiUrl: "https://api.testnet.pact.fi"});
 ```
 
 Fetching a pool.
 
 ```js
-const algo = await client.fetchAsset(0);
-const otherCoin = await client.fetchAsset(8949213);
+const algo = await pact.fetchAsset(0);
+const otherCoin = await pact.fetchAsset(8949213);
 
-const pool = await client.fetchPool(algo, otherCoin); // The pool will be fetched regardless of assets order.
+const pool = await pact.fetchPool(algo, otherCoin); // The pool will be fetched regardless of assets order.
 ```
 
 Fetching a pool also accepts optional parameters.
 
 ```js
-const pool = await client.fetchPool(algo, otherCoin, {
+const pool = await pact.fetchPool(algo, otherCoin, {
   appId: 456321, // Use if the pool is not visible in the Pact API.
   feeBps: 30, // Use if your custom contract uses non-default fee.
 });
@@ -52,7 +59,7 @@ const pool = await client.fetchPool(algo, otherCoin, {
 You can list all pools from the Pact API.
 
 ```js
-const pools = await client.listPools();
+const pools = await pact.listPools();
 console.log(pools);
 // {
 //   "count":19,
@@ -62,7 +69,7 @@ console.log(pools);
 // }
 
 // The listing uses pagination and filtering. Look at typings for details.
-const pools = await client.listPools({page: 2, primary_asset__algoid: 9843123});
+const pools = await pact.listPools({page: 2, primary_asset__algoid: 9843123});
 ```
 
 Before making the transactions you need to opt-in for the assets. There's no need to opt-in for algo.
@@ -154,7 +161,7 @@ console.log(swap.effect);
 // Let's submit the swap.
 const swapTx = await swap.prepareTx(account.addr);
 const signedTxs = swapTx.signTxn(account.sk)
-const tx = await client.algod.sendRawTransaction(signedTxs).do();
+const tx = await algod.sendRawTransaction(signedTxs).do();
 await algosdk.waitForConfirmation(algod, tx.txId, 2);
 ```
 
@@ -162,10 +169,13 @@ Look for more [examples](examples).
 
 # Development
 
+- `npm install`
+
 Development requires [Pact contracts V1](https://github.com/pactfi/contracts_v1) to be checked out.
 
 - `git clone git@github.com:pactfi/contracts_v1.git`
 - `cd contracts_v1`
+- `git apply ../contracts.patch`
 - `poetry install`
 - `docker compose up -d`
 - `cd ..`
@@ -177,3 +187,7 @@ Development requires [Pact contracts V1](https://github.com/pactfi/contracts_v1)
 ## Building
 
 - `npm run build`
+- `npm pack`
+
+You can install the package locally with
+`sudo npm install -g pactsdk-<version>.tgz`

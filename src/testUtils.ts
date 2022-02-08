@@ -3,14 +3,13 @@ import { exec } from "child_process";
 import algosdk from "algosdk";
 
 import { Asset } from "./asset";
-import { Client } from "./client";
+import { PactClient } from "./client";
 import { Pool } from "./pool";
 import { TransactionGroup } from "./transactionGroup";
 
-const ROOT_ACCOUNT_MNEMONIC =
-  "jelly swear alcohol hybrid wrong camp prize attack hurdle shaft solar entry inner arm region economy awful inch they squirrel sort renew legend absorb giant";
-
-export const ROOT_ACCOUNT = algosdk.mnemonicToSecretKey(ROOT_ACCOUNT_MNEMONIC);
+export const ROOT_ACCOUNT = algosdk.mnemonicToSecretKey(
+  "jelly swear alcohol hybrid wrong camp prize attack hurdle shaft solar entry inner arm region economy awful inch they squirrel sort renew legend absorb giant",
+);
 
 export const algod = new algosdk.Algodv2(
   "8cec5f4261a2b5ad831a8a701560892cabfe1f0ca00a22a37dee3e1266d726e3",
@@ -18,27 +17,26 @@ export const algod = new algosdk.Algodv2(
   8787,
 );
 
-export async function signSendAndWait(
+export async function signAndSend(
   txToSend: algosdk.Transaction | TransactionGroup,
   account: algosdk.Account,
 ) {
   const signedTx = txToSend.signTxn(account.sk);
-  const tx = await algod.sendRawTransaction(signedTx).do();
-  await algosdk.waitForConfirmation(algod, tx.txId, 2);
-  return tx;
+  return await algod.sendRawTransaction(signedTx).do();
 }
 
 export async function createAsset(
   account: algosdk.Account,
-  name = "COIN",
+  name: string | undefined = "COIN",
   decimals = 6,
+  totalIssuance = 1_000_000,
 ): Promise<number> {
   const suggestedParams = await algod.getTransactionParams().do();
 
   const txn = algosdk.makeAssetCreateTxnWithSuggestedParams(
     account.addr,
     undefined, // note
-    1_000_000, // totalIssuance
+    totalIssuance,
     decimals,
     false, // defaultFrozen
     account.addr, // manager
@@ -52,7 +50,7 @@ export async function createAsset(
     suggestedParams,
   );
 
-  const tx = await signSendAndWait(txn, account);
+  const tx = await signAndSend(txn, account);
   const ptx = await algod.pendingTransactionInformation(tx.txId).do();
   return ptx["asset-index"];
 }
@@ -106,14 +104,14 @@ export async function addLiqudity(
   secondaryAssetAmount = 10_000,
 ) {
   const optInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
-  await signSendAndWait(optInTx, account);
+  await signAndSend(optInTx, account);
 
   const addLiqTx = await pool.prepareAddLiquidityTx({
     address: account.addr,
     primaryAssetAmount,
     secondaryAssetAmount,
   });
-  await signSendAndWait(addLiqTx, account);
+  await signAndSend(addLiqTx, account);
   await pool.updateState();
 }
 
@@ -135,36 +133,36 @@ export async function fundAccountWithAlgos(
     amount: amount,
     suggestedParams,
   });
-  await signSendAndWait(tx, ROOT_ACCOUNT);
+  await signAndSend(tx, ROOT_ACCOUNT);
 }
 
-export type TestPool = {
+export type TestBed = {
   account: algosdk.Account;
-  client: Client;
+  pact: PactClient;
   algo: Asset;
   coin: Asset;
   pool: Pool;
 };
 
-export async function makeFreshTestPool(
+export async function makeFreshTestBed(
   options: {
     feeBps?: number;
   } = {},
-): Promise<TestPool> {
+): Promise<TestBed> {
   const account = await newAccount();
-  const client = new Client(algod);
+  const pact = new PactClient(algod);
 
-  const algo = await client.fetchAsset(0);
+  const algo = await pact.fetchAsset(0);
   const coinIndex = await createAsset(account);
-  const coin = await client.fetchAsset(coinIndex);
+  const coin = await pact.fetchAsset(coinIndex);
 
   const appId = await deployContract(account, algo, coin, {
     feeBps: options.feeBps,
   });
-  const pool = await client.fetchPool(algo, coin, {
+  const pool = await pact.fetchPool(algo, coin, {
     appId,
     feeBps: options.feeBps,
   });
 
-  return { account, client, algo, coin, pool };
+  return { account, pact, algo, coin, pool };
 }

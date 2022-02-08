@@ -1,22 +1,22 @@
 const { default: algosdk } = require('algosdk');
-const pact = require('../dist/pactsdk.cjs');
+const pactsdk = require('../dist/cjs/pactsdk.js');
 
 const account = algosdk.mnemonicToSecretKey('<mnemonic>');
 
 (async function() {
   const algod = new algosdk.Algodv2();  // provide options
-  const client = new pact.Client(algod);
+  const pact = new pactsdk.PactClient(algod);
 
-  const algo = await client.fetchAsset(0);
-  const jamnik = await client.fetchAsset(41409282);
+  const algo = await pact.fetchAsset(0);
+  const jamnik = await pact.fetchAsset(41409282);
 
-  const pool = await client.fetchPool(algo, jamnik);
+  const pool = await pact.fetchPool(algo, jamnik);
 
   // Opt-in for liquidity token.
   const optInTxn = await pool.liquidityAsset.prepareOptInTx(account.addr);
-  sentOptInTxn = await client.algod.sendRawTransaction(optInTxn.signTxn(account.sk)).do();
+  sentOptInTxn = await algod.sendRawTransaction(optInTxn.signTxn(account.sk)).do();
   console.log(`OptIn transaction ${sentOptInTxn.txId}`);
-  await algosdk.waitForConfirmation(client.algod, sentOptInTxn.txId, 2);
+  await algosdk.waitForConfirmation(algod, sentOptInTxn.txId, 2);
 
   const addLiqTx = await pool.prepareAddLiquidityTx({
     address: account.addr,
@@ -24,7 +24,7 @@ const account = algosdk.mnemonicToSecretKey('<mnemonic>');
     secondaryAssetAmount: 500_000,
   });
   const signedTx = addLiqTx.signTxn(account.sk)
-  const sentTx = await client.algod.sendRawTransaction(signedTx).do();
+  const sentTx = await algod.sendRawTransaction(signedTx).do();
 
   console.log(`Transaction ${sentTx.txId}`);
 })();

@@ -226,13 +226,13 @@ export class Pool {
   }
 
   getOtherAsset(asset: Asset): Asset {
-    if (asset === this.primaryAsset) {
+    if (asset.index === this.primaryAsset.index) {
       return this.secondaryAsset;
-    } else if (asset === this.secondaryAsset) {
-      return this.primaryAsset;
-    } else {
-      throw Error(`Asset with index ${asset.index} is not a pool asset.`);
     }
+    if (asset.index === this.secondaryAsset.index) {
+      return this.primaryAsset;
+    }
+    throw Error(`Asset with index ${asset.index} is not a pool asset.`);
   }
 
   async updateState(): Promise<PoolState> {
@@ -256,7 +256,7 @@ export class Pool {
       amount: options.secondaryAssetAmount,
       suggestedParams,
     });
-    const txn3 = this.makeNoopTx({
+    const txn3 = this.makeApplicationNoopTx({
       address: options.address,
       suggestedParams,
       fee: 3000,
@@ -276,7 +276,7 @@ export class Pool {
       asset: this.liquidityAsset,
       suggestedParams,
     });
-    const txn2 = this.makeNoopTx({
+    const txn2 = this.makeApplicationNoopTx({
       address: options.address,
       suggestedParams,
       fee: 3000,
@@ -287,7 +287,16 @@ export class Pool {
   }
 
   prepareSwap(options: SwapOptions): Swap {
+    if (!this.isAssetInThePool(options.asset)) {
+      throw `Asset ${options.asset.index} not in the pool`;
+    }
     return new Swap(this, options.asset, options.amount, options.slippagePct);
+  }
+
+  isAssetInThePool(asset: Asset) {
+    return [this.primaryAsset.index, this.secondaryAsset.index].includes(
+      asset.index,
+    );
   }
 
   async prepareSwapTx(swap: Swap, address: string) {
@@ -299,7 +308,7 @@ export class Pool {
       asset: swap.assetOut,
       suggestedParams,
     });
-    const txn2 = this.makeNoopTx({
+    const txn2 = this.makeApplicationNoopTx({
       address,
       suggestedParams,
       fee: 2000,
@@ -318,18 +327,17 @@ export class Pool {
         amount: options.amount,
         suggestedParams: options.suggestedParams,
       });
-    } else {
-      return algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
-        from: options.address,
-        to: this.getEscrowAddress(),
-        amount: options.amount,
-        assetIndex: options.asset.index,
-        suggestedParams: options.suggestedParams,
-      });
     }
+    return algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+      from: options.address,
+      to: this.getEscrowAddress(),
+      amount: options.amount,
+      assetIndex: options.asset.index,
+      suggestedParams: options.suggestedParams,
+    });
   }
 
-  private makeNoopTx(options: MakeNoopTxOptions) {
+  private makeApplicationNoopTx(options: MakeNoopTxOptions) {
     const appArgs = encodeArray(options.args);
 
     const foreignAssets = [this.primaryAsset.index, this.secondaryAsset.index];

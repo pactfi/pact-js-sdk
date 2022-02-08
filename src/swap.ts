@@ -42,7 +42,7 @@ export class Swap {
     }
   }
 
-  private buildEffect() {
+  private buildEffect(): SwapEffect {
     const amountIn = Math.floor(
       this.pool.calculator
         .getAmountIn(this.assetOut, this.amountOut)
@@ -50,7 +50,7 @@ export class Swap {
     );
 
     let primaryLiqChange, secondaryLiqChange: number;
-    if (this.assetOut === this.pool.primaryAsset) {
+    if (this.assetOut.index === this.pool.primaryAsset.index) {
       primaryLiqChange = this.amountOut;
       secondaryLiqChange = -amountIn;
     } else {
@@ -81,10 +81,7 @@ export class Swap {
           .getMinimumAmountIn(this.assetOut, this.amountOut, this.slippagePct)
           .toNumber(),
       ),
-      price: this.pool.calculator
-        .getGrossAmountIn(this.assetOut, this.amountOut)
-        .div(this.amountOut)
-        .toNumber(),
+      price: this.pool.calculator.getSwapPrice(this.assetOut, this.amountOut),
       primaryAssetPriceAfterSwap,
       secondaryAssetPriceAfterSwap,
       primaryAssetPriceChangePct: this.pool.calculator
@@ -101,7 +98,7 @@ export class Swap {
           secondaryLiqChange,
         )
         .toNumber(),
-      fee: Math.round(
+      fee: Math.ceil(
         this.pool.calculator.getFee(this.assetOut, this.amountOut).toNumber(),
       ),
     };

@@ -7,7 +7,7 @@ export class TransactionGroup {
     this.transactions = algosdk.assignGroupID(transactions);
   }
 
-  signTxn(privateKey: Uint8Array): Uint8Array[] {
-    return this.transactions.map((tx) => tx.signTxn(privateKey));
+  signTxn(secretKey: Uint8Array): Uint8Array[] {
+    return this.transactions.map((tx) => tx.signTxn(secretKey));
   }
 }

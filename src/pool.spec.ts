@@ -1,11 +1,6 @@
 import { Asset } from "./asset";
-import { Client } from "./client";
-import {
-  TestPool,
-  algod,
-  makeFreshTestPool,
-  signSendAndWait,
-} from "./testUtils";
+import { PactClient } from "./client";
+import { TestBed, algod, makeFreshTestBed, signAndSend } from "./testUtils";
 
 let apiAppId: number;
 let apiSecondaryAssetIndex: number;
@@ -32,19 +27,19 @@ jest.mock("./crossFetch", () => {
 });
 
 describe("Pool", () => {
-  let testPool: TestPool;
+  let testBed: TestBed;
 
   beforeAll(async () => {
-    testPool = await makeFreshTestPool();
+    testBed = await makeFreshTestBed();
 
-    apiAppId = testPool.pool.appId;
-    apiSecondaryAssetIndex = testPool.coin.index;
+    apiAppId = testBed.pool.appId;
+    apiSecondaryAssetIndex = testBed.coin.index;
   });
 
   it("listing pools", async () => {
-    const client = new Client(algod);
+    const pact = new PactClient(algod);
 
-    const pools = await client.listPools();
+    const pools = await pact.listPools();
     expect(pools).toEqual({
       results: [
         {
@@ -57,60 +52,70 @@ describe("Pool", () => {
   });
 
   it("fetching pool from api", async () => {
-    const client = new Client(algod);
+    const pact = new PactClient(algod);
 
-    const pool = await client.fetchPool(testPool.algo, testPool.coin);
+    const pool = await pact.fetchPool(testBed.algo, testBed.coin);
 
-    expect(pool.primaryAsset.index).toBe(testPool.algo.index);
-    expect(pool.secondaryAsset.index).toBe(testPool.coin.index);
-    expect(pool.liquidityAsset.index).toBe(testPool.pool.liquidityAsset.index);
+    expect(pool.primaryAsset.index).toBe(testBed.algo.index);
+    expect(pool.secondaryAsset.index).toBe(testBed.coin.index);
+    expect(pool.liquidityAsset.index).toBe(testBed.pool.liquidityAsset.index);
     expect(pool.liquidityAsset.name).toBe("ALGO/COIN PACT LP Token");
-    expect(pool.appId).toBe(testPool.pool.appId);
+    expect(pool.appId).toBe(testBed.pool.appId);
   });
 
   it("fetching not existing pool from api", async () => {
     apiAppId = 0;
-    const client = new Client(algod);
+    const pact = new PactClient(algod);
 
-    const coin = new Asset(client.algod, 999999999);
+    const coin = new Asset(pact.algod, 999999999);
 
-    await expect(() => client.fetchPool(testPool.algo, coin)).rejects.toBe(
+    await expect(() => pact.fetchPool(testBed.algo, coin)).rejects.toBe(
       "Cannot find pool for assets 0 and 999999999.",
     );
   });
 
   it("fetching pool by providing appid", async () => {
-    const client = new Client(algod);
+    const pact = new PactClient(algod);
 
-    const pool = await client.fetchPool(testPool.algo, testPool.coin, {
-      appId: testPool.pool.appId,
+    const pool = await pact.fetchPool(testBed.algo, testBed.coin, {
+      appId: testBed.pool.appId,
     });
 
-    expect(pool.primaryAsset.index).toBe(testPool.algo.index);
-    expect(pool.secondaryAsset.index).toBe(testPool.coin.index);
-    expect(pool.liquidityAsset.index).toBe(testPool.pool.liquidityAsset.index);
+    expect(pool.primaryAsset.index).toBe(testBed.algo.index);
+    expect(pool.secondaryAsset.index).toBe(testBed.coin.index);
+    expect(pool.liquidityAsset.index).toBe(testBed.pool.liquidityAsset.index);
     expect(pool.liquidityAsset.name).toBe("ALGO/COIN PACT LP Token");
-    expect(pool.appId).toBe(testPool.pool.appId);
+    expect(pool.appId).toBe(testBed.pool.appId);
   });
 
   it("fetching pool with reversed assets", async () => {
-    const client = new Client(algod);
+    const pact = new PactClient(algod);
 
     // We reverse the assets order here.
-    const pool = await client.fetchPool(testPool.coin, testPool.algo, {
-      appId: testPool.pool.appId,
+    const pool = await pact.fetchPool(testBed.coin, testBed.algo, {
+      appId: testBed.pool.appId,
     });
 
-    expect(pool.primaryAsset.index).toBe(testPool.algo.index);
-    expect(pool.secondaryAsset.index).toBe(testPool.coin.index);
-    expect(pool.liquidityAsset.index).toBe(testPool.pool.liquidityAsset.index);
+    expect(pool.primaryAsset.index).toBe(testBed.algo.index);
+    expect(pool.secondaryAsset.index).toBe(testBed.coin.index);
+    expect(pool.liquidityAsset.index).toBe(testBed.pool.liquidityAsset.index);
     expect(pool.liquidityAsset.name).toBe("ALGO/COIN PACT LP Token");
-    expect(pool.appId).toBe(testPool.pool.appId);
+    expect(pool.appId).toBe(testBed.pool.appId);
+  });
+
+  it("get other asset", async () => {
+    expect(testBed.pool.getOtherAsset(testBed.algo)).toBe(testBed.coin);
+    expect(testBed.pool.getOtherAsset(testBed.coin)).toBe(testBed.algo);
+
+    const shitcoin = new Asset(testBed.pact.algod, testBed.coin.index + 1);
+    expect(() => testBed.pool.getOtherAsset(shitcoin)).toThrow(
+      `Asset with index ${shitcoin.index} is not a pool asset.`,
+    );
   });
 });
 
 it("Pool e2e scenario", async () => {
-  const { account, algo, coin, pool } = await makeFreshTestPool();
+  const { account, algo, coin, pool } = await makeFreshTestBed();
 
   expect(pool.state).toEqual({
     totalLiquidity: 0,
@@ -122,7 +127,7 @@ it("Pool e2e scenario", async () => {
 
   // Opt in for liquidity asset.
   const liqOptInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
-  await signSendAndWait(liqOptInTx, account);
+  await signAndSend(liqOptInTx, account);
 
   // Add liquidity.
   const addLiqTx = await pool.prepareAddLiquidityTx({
@@ -130,7 +135,7 @@ it("Pool e2e scenario", async () => {
     primaryAssetAmount: 100_000,
     secondaryAssetAmount: 100_000,
   });
-  await signSendAndWait(addLiqTx, account);
+  await signAndSend(addLiqTx, account);
   await pool.updateState();
   expect(pool.state).toEqual({
     totalLiquidity: 100_000,
@@ -145,7 +150,7 @@ it("Pool e2e scenario", async () => {
     address: account.addr,
     amount: 10_000,
   });
-  await signSendAndWait(removeLiqTx, account);
+  await signAndSend(removeLiqTx, account);
   await pool.updateState();
   expect(pool.state).toEqual({
     totalLiquidity: 90_000,
@@ -162,7 +167,7 @@ it("Pool e2e scenario", async () => {
     slippagePct: 2,
   });
   const algoSwapTx = await algoSwap.prepareTx(account.addr);
-  await signSendAndWait(algoSwapTx, account);
+  await signAndSend(algoSwapTx, account);
   await pool.updateState();
   expect(pool.state.totalLiquidity).toBe(90_000);
   expect(pool.state.totalPrimary > 100_000).toBe(true);
@@ -177,7 +182,7 @@ it("Pool e2e scenario", async () => {
     slippagePct: 2,
   });
   const coinSwapTx = await coinSwap.prepareTx(account.addr);
-  await signSendAndWait(coinSwapTx, account);
+  await signAndSend(coinSwapTx, account);
   await pool.updateState();
   expect(pool.state.totalLiquidity).toBe(90_000);
   expect(pool.state.totalPrimary < 100_000).toBe(true);

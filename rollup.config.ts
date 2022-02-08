@@ -14,7 +14,7 @@ export default [
     input,
     plugins: [typescript(), nodeResolve(), terser()],
     output: {
-      file: `dist/${pkg.name}.min.js`,
+      file: `dist/browser/${pkg.name}.min.js`,
       format: "umd",
       name: pkg.name,
       esModule: false,
@@ -33,7 +33,7 @@ export default [
     input,
     plugins: [typescript()],
     output: {
-      dir: "dist",
+      dir: "dist/esm",
       format: "esm",
       exports: "named",
       sourcemap: true,
@@ -46,7 +46,7 @@ export default [
     input,
     plugins: [typescript()],
     output: {
-      file: `dist/${pkg.name}.cjs`,
+      file: `dist/cjs/${pkg.name}.js`,
       format: "cjs",
       exports: "named",
       sourcemap: true,

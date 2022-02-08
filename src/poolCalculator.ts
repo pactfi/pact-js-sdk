@@ -68,7 +68,7 @@ export class PoolCalculator {
 
   getGrossAmountIn(asset: Asset, amount: number): D {
     const dAmount = new D(amount as number);
-    if (asset === this.pool.primaryAsset) {
+    if (asset.index === this.pool.primaryAsset.index) {
       return this.swapPrimaryGrossAmount(dAmount);
     } else {
       return this.swapSecondaryGrossAmount(dAmount);
@@ -83,7 +83,7 @@ export class PoolCalculator {
   getAmountIn(asset: Asset, amount: number): D {
     const dAmount = new D(amount as number);
     let grossAmount: D;
-    if (asset === this.pool.primaryAsset) {
+    if (asset.index === this.pool.primaryAsset.index) {
       grossAmount = this.swapPrimaryGrossAmount(dAmount);
     } else {
       grossAmount = this.swapSecondaryGrossAmount(dAmount);
@@ -104,7 +104,7 @@ export class PoolCalculator {
   ): D {
     const newPrimaryLiq = this.primaryAssetAmount.add(primaryLiqChange);
     const newSecondaryLiq = this.secondaryAssetAmount.add(secondaryLiqChange);
-    if (asset === this.pool.primaryAsset) {
+    if (asset.index === this.pool.primaryAsset.index) {
       return this.getPrimaryAssetPrice(newPrimaryLiq, newSecondaryLiq);
     } else {
       return this.getSecondaryAssetPrice(newPrimaryLiq, newSecondaryLiq);
@@ -122,10 +122,17 @@ export class PoolCalculator {
       secondaryLiqChange,
     );
     const oldPrice =
-      asset === this.pool.primaryAsset
+      asset.index === this.pool.primaryAsset.index
         ? this.primaryAssetPrice
         : this.secondaryAssetPrice;
     return newPrice.div(oldPrice).mul(100).sub(100);
+  }
+
+  getSwapPrice(assetOut: Asset, amountOut: number): number {
+    const assetIn = this.pool.getOtherAsset(assetOut);
+    const amountIn = this.getGrossAmountIn(assetOut, amountOut);
+    const diff_ratio = new D(assetOut.ratio / assetIn.ratio);
+    return new D(amountIn).div(amountOut).mul(diff_ratio).toNumber();
   }
 
   private subtractFee(assetGrossAmount: D) {

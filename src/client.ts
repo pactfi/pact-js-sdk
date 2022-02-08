@@ -20,7 +20,7 @@ const DEFAULT_CLIENT_OPTIONS: ClientOptions = {
   pactApiUrl: "https://api.pact.fi",
 };
 
-export class Client {
+export class PactClient {
   pactApiUrl?: string;
 
   constructor(public algod: algosdk.Algodv2, options: ClientOptions = {}) {
