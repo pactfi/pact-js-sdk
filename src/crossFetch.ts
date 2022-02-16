@@ -10,7 +10,9 @@ export async function crossFetch(url: string): Promise<any> {
 }
 
 function nodeFetch(url: string): Promise<any> {
-  const http = require("http"); // eslint-disable-line
+  const protocol = url.startsWith("https") ? "https" : "http";
+  const http = require(protocol); // eslint-disable-line
+
   return new Promise((resolve, reject) => {
     http.get(url, (response: any) => {
       let data = "";
