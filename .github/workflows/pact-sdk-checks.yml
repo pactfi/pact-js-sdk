@@ -21,10 +21,8 @@ jobs:
       - name: Fetch contracts
         uses: actions/checkout@v2
         with:
-          repository: "pactfi/contracts_v1"
-          token: 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
-          path: contracts_v1
-      - run: cd contracts_v1 && git apply ../contracts.patch
-      - run: cd contracts_v1 && poetry install
-      - run: cd contracts_v1 && docker-compose up -d
+          repository: "pactfi/algorand-testbed"
+          path: algorand-testbed
+      - run: cd algorand-testbed && poetry install
+      - run: cd algorand-testbed && docker-compose up -d
       - run: npm run test

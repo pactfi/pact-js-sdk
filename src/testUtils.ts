@@ -65,7 +65,7 @@ export async function deployContract(
 ): Promise<number> {
   const mnemonic = algosdk.secretKeyToMnemonic(account.sk);
   const command = `
-    cd contracts_v1 && \\
+    cd algorand-testbed && \\
     ALGOD_URL=http://localhost:8787 \\
     ALGOD_TOKEN=8cec5f4261a2b5ad831a8a701560892cabfe1f0ca00a22a37dee3e1266d726e3 \\
     DEPLOYER_MNEMONIC="${mnemonic}" \\

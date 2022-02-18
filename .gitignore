@@ -43,5 +43,5 @@ node_modules/
 # Build output
 dist
 
-# Contracts have to be checked out to run tests
-contracts_v1
+# testbed has to be checked out to run tests
+algorand-testbed
