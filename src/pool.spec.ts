@@ -12,9 +12,9 @@ function get_api_pool_data() {
   return {
     results: [
       {
-        appid: apiAppId,
+        appid: apiAppId.toString(),
         primary_asset: { algoid: "0" },
-        secondary_asset: { algoid: apiSecondaryAssetIndex },
+        secondary_asset: { algoid: apiSecondaryAssetIndex.toString() },
       },
     ],
   };
@@ -43,9 +43,9 @@ describe("Pool", () => {
     expect(pools).toEqual({
       results: [
         {
-          appid: apiAppId,
+          appid: apiAppId.toString(),
           primary_asset: { algoid: "0" },
-          secondary_asset: { algoid: apiSecondaryAssetIndex },
+          secondary_asset: { algoid: apiSecondaryAssetIndex.toString() },
         },
       ],
     });
@@ -61,6 +61,8 @@ describe("Pool", () => {
     expect(pool.liquidityAsset.index).toBe(testBed.pool.liquidityAsset.index);
     expect(pool.liquidityAsset.name).toBe("ALGO/COIN PACT LP Token");
     expect(pool.appId).toBe(testBed.pool.appId);
+
+    expect(pool.getEscrowAddress()).toBeTruthy();
   });
 
   it("fetching not existing pool from api", async () => {

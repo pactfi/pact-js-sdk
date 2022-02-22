@@ -200,7 +200,7 @@ export async function getAppIdFromAssets(
     secondary_asset__algoid: secondaryAsset.index.toString(),
   });
   if (data.results.length) {
-    return data.results[0].appid;
+    return parseInt(data.results[0].appid);
   }
   return 0;
 }
