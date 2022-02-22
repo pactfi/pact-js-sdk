@@ -16,7 +16,7 @@ Signing and sending transactions is not covered by the library. The provided exa
 
 # Installation
 
-There's no public NPM package yet. See [Building](#building) for installing a local build.
+`npm install --save @pactfi/pactsdk`
 
 # Basic usage
 
@@ -26,7 +26,7 @@ Create a Pact client.
 
 ```js
 import algosdk from "algosdk";
-import pactsdk from "pactsdk";
+import pactsdk from "@pactfi/pactsdk";
 
 const algod = new algosdk.Algodv2(token, url, port);
 const pact = new pactsdk.PactClient(algod);
