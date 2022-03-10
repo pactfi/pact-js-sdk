@@ -10,7 +10,8 @@ const account = algosdk.mnemonicToSecretKey('<mnemonic>');
   const algo = await pact.fetchAsset(0);
   const jamnik = await pact.fetchAsset(41409282);
 
-  const pool = await pact.fetchPool(algo, jamnik);
+  const pools = await pact.fetchPoolsByAssets(algo, jamnik);
+  const pool = pools[0];
 
   // Opt-in for liquidity token.
   const optInTxn = await pool.liquidityAsset.prepareOptInTx(account.addr);

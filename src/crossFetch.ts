@@ -1,15 +1,17 @@
-import { isBrowser } from "./compat";
+function isBrowser(): boolean {
+  return typeof window !== "undefined";
+}
 
-export async function crossFetch(url: string): Promise<any> {
+export async function crossFetch<T>(url: string): Promise<T> {
   if (isBrowser()) {
     const response = await fetch(url);
     return await response.json();
   } else {
-    return await nodeFetch(url);
+    return await nodeFetch<T>(url);
   }
 }
 
-function nodeFetch(url: string): Promise<any> {
+function nodeFetch<T>(url: string): Promise<T> {
   const protocol = url.startsWith("https") ? "https" : "http";
   const http = require(protocol); // eslint-disable-line
 

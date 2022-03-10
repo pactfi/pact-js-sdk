@@ -1,23 +1,17 @@
 import { Asset } from "./asset";
 import { PactClient } from "./client";
-import { TestBed, algod, makeFreshTestBed, signAndSend } from "./testUtils";
+import {
+  TestBed,
+  algod,
+  deployContract,
+  makeFreshTestBed,
+  signAndSend,
+} from "./testUtils";
 
-let apiAppId: number;
-let apiSecondaryAssetIndex: number;
+let poolsApiResults: any[];
 
 function get_api_pool_data() {
-  if (!apiAppId) {
-    return { results: [] };
-  }
-  return {
-    results: [
-      {
-        appid: apiAppId.toString(),
-        primary_asset: { algoid: "0" },
-        secondary_asset: { algoid: apiSecondaryAssetIndex.toString() },
-      },
-    ],
-  };
+  return { results: poolsApiResults };
 }
 
 jest.mock("./crossFetch", () => {
@@ -32,8 +26,13 @@ describe("Pool", () => {
   beforeAll(async () => {
     testBed = await makeFreshTestBed();
 
-    apiAppId = testBed.pool.appId;
-    apiSecondaryAssetIndex = testBed.coin.index;
+    poolsApiResults = [
+      {
+        appid: testBed.pool.appId.toString(),
+        primary_asset: { algoid: "0" },
+        secondary_asset: { algoid: testBed.coin.index.toString() },
+      },
+    ];
   });
 
   it("listing pools", async () => {
@@ -43,45 +42,115 @@ describe("Pool", () => {
     expect(pools).toEqual({
       results: [
         {
-          appid: apiAppId.toString(),
+          appid: testBed.pool.appId.toString(),
           primary_asset: { algoid: "0" },
-          secondary_asset: { algoid: apiSecondaryAssetIndex.toString() },
+          secondary_asset: { algoid: testBed.coin.index.toString() },
         },
       ],
     });
   });
 
-  it("fetching pool from api", async () => {
+  it("fetching pool by assets", async () => {
     const pact = new PactClient(algod);
 
-    const pool = await pact.fetchPool(testBed.algo, testBed.coin);
+    const pools = await pact.fetchPoolsByAssets(testBed.algo, testBed.coin);
 
-    expect(pool.primaryAsset.index).toBe(testBed.algo.index);
-    expect(pool.secondaryAsset.index).toBe(testBed.coin.index);
-    expect(pool.liquidityAsset.index).toBe(testBed.pool.liquidityAsset.index);
-    expect(pool.liquidityAsset.name).toBe("ALGO/COIN PACT LP Token");
-    expect(pool.appId).toBe(testBed.pool.appId);
+    expect(pools.length === 1);
+    expect(pools[0].primaryAsset.index).toBe(testBed.algo.index);
+    expect(pools[0].secondaryAsset.index).toBe(testBed.coin.index);
+    expect(pools[0].liquidityAsset.index).toBe(
+      testBed.pool.liquidityAsset.index,
+    );
+    expect(pools[0].liquidityAsset.name).toBe("ALGO/COIN PACT LP Token");
+    expect(pools[0].appId).toBe(testBed.pool.appId);
 
-    expect(pool.getEscrowAddress()).toBeTruthy();
+    expect(pools[0].getEscrowAddress()).toBeTruthy();
+
+    // Can fetch by ids.
+    const pools2 = await pact.fetchPoolsByAssets(
+      testBed.algo.index,
+      testBed.coin.index,
+    );
+    expect(pools2.length === 1);
+    expect(pools2[0].primaryAsset.index).toBe(testBed.algo.index);
   });
 
-  it("fetching not existing pool from api", async () => {
-    apiAppId = 0;
+  it("fetching pool by assets with reversed order", async () => {
+    const pact = new PactClient(algod);
+
+    // We reverse the assets order here.
+    const pools = await pact.fetchPoolsByAssets(testBed.coin, testBed.algo);
+
+    expect(pools.length === 1);
+    expect(pools[0].primaryAsset.index).toBe(testBed.algo.index);
+    expect(pools[0].secondaryAsset.index).toBe(testBed.coin.index);
+    expect(pools[0].liquidityAsset.index).toBe(
+      testBed.pool.liquidityAsset.index,
+    );
+    expect(pools[0].liquidityAsset.name).toBe("ALGO/COIN PACT LP Token");
+    expect(pools[0].appId).toBe(testBed.pool.appId);
+  });
+
+  it("fetching pool by assets with multiple results", async () => {
+    const second_app_id = await deployContract(
+      testBed.account,
+      testBed.algo.index,
+      testBed.coin.index,
+      { feeBps: 100 },
+    );
+
+    poolsApiResults = [
+      {
+        appid: testBed.pool.appId.toString(),
+        primary_asset: { algoid: "0" },
+        secondary_asset: { algoid: testBed.coin.index.toString() },
+      },
+      {
+        appid: second_app_id.toString(),
+        primary_asset: { algoid: "0" },
+        secondary_asset: { algoid: testBed.coin.index.toString() },
+      },
+    ];
+
+    const pact = new PactClient(algod);
+
+    const pools = await pact.fetchPoolsByAssets(testBed.algo, testBed.coin);
+
+    expect(pools.length === 2);
+
+    expect(pools[0].primaryAsset.index).toBe(testBed.algo.index);
+    expect(pools[0].secondaryAsset.index).toBe(testBed.coin.index);
+    expect(
+      pools[0].liquidityAsset.index === testBed.pool.liquidityAsset.index,
+    ).toBe(true);
+    expect(pools[0].liquidityAsset.name).toBe("ALGO/COIN PACT LP Token");
+    expect(pools[0].appId).toBe(testBed.pool.appId);
+    expect(pools[0].feeBps).toBe(30);
+
+    expect(pools[1].primaryAsset.index).toBe(testBed.algo.index);
+    expect(pools[1].secondaryAsset.index).toBe(testBed.coin.index);
+    expect(
+      pools[1].liquidityAsset.index === testBed.pool.liquidityAsset.index,
+    ).toBe(false);
+    expect(pools[1].liquidityAsset.name).toBe("ALGO/COIN PACT LP Token");
+    expect(pools[1].appId).toBe(second_app_id);
+    expect(pools[1].feeBps).toBe(100);
+  });
+
+  it("fetching by assets not existing pool", async () => {
+    poolsApiResults = [];
     const pact = new PactClient(algod);
 
     const coin = new Asset(pact.algod, 999999999);
 
-    await expect(() => pact.fetchPool(testBed.algo, coin)).rejects.toBe(
-      "Cannot find pool for assets 0 and 999999999.",
-    );
+    const pools = await pact.fetchPoolsByAssets(testBed.algo, coin);
+    expect(pools).toEqual([]);
   });
 
-  it("fetching pool by providing appid", async () => {
+  it("fetching pool by id", async () => {
     const pact = new PactClient(algod);
 
-    const pool = await pact.fetchPool(testBed.algo, testBed.coin, {
-      appId: testBed.pool.appId,
-    });
+    const pool = await pact.fetchPoolById(testBed.pool.appId);
 
     expect(pool.primaryAsset.index).toBe(testBed.algo.index);
     expect(pool.secondaryAsset.index).toBe(testBed.coin.index);
@@ -90,19 +159,12 @@ describe("Pool", () => {
     expect(pool.appId).toBe(testBed.pool.appId);
   });
 
-  it("fetching pool with reversed assets", async () => {
+  it("fetching pool by id not existing", async () => {
     const pact = new PactClient(algod);
 
-    // We reverse the assets order here.
-    const pool = await pact.fetchPool(testBed.coin, testBed.algo, {
-      appId: testBed.pool.appId,
+    await expect(() => pact.fetchPoolById(9999999)).rejects.toMatchObject({
+      status: 404,
     });
-
-    expect(pool.primaryAsset.index).toBe(testBed.algo.index);
-    expect(pool.secondaryAsset.index).toBe(testBed.coin.index);
-    expect(pool.liquidityAsset.index).toBe(testBed.pool.liquidityAsset.index);
-    expect(pool.liquidityAsset.name).toBe("ALGO/COIN PACT LP Token");
-    expect(pool.appId).toBe(testBed.pool.appId);
   });
 
   it("get other asset", async () => {
