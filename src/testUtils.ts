@@ -57,8 +57,8 @@ export async function createAsset(
 
 export async function deployContract(
   account: algosdk.Account,
-  primaryAsset: Asset,
-  secondaryAsset: Asset,
+  primaryAssetIndex: number,
+  secondaryAssetIndex: number,
   options: {
     feeBps?: number;
   } = {},
@@ -70,8 +70,8 @@ export async function deployContract(
     ALGOD_TOKEN=8cec5f4261a2b5ad831a8a701560892cabfe1f0ca00a22a37dee3e1266d726e3 \\
     DEPLOYER_MNEMONIC="${mnemonic}" \\
     poetry run python scripts/deploy.py \\
-   --primary_asset_id=${primaryAsset.index} \\
-   --secondary_asset_id=${secondaryAsset.index} \\
+   --primary_asset_id=${primaryAssetIndex} \\
+   --secondary_asset_id=${secondaryAssetIndex} \\
    --fee_bps=${options.feeBps ?? 30}
    `;
 
@@ -156,13 +156,10 @@ export async function makeFreshTestBed(
   const coinIndex = await createAsset(account);
   const coin = await pact.fetchAsset(coinIndex);
 
-  const appId = await deployContract(account, algo, coin, {
+  const appId = await deployContract(account, algo.index, coin.index, {
     feeBps: options.feeBps,
   });
-  const pool = await pact.fetchPool(algo, coin, {
-    appId,
-    feeBps: options.feeBps,
-  });
+  const pool = await pact.fetchPoolById(appId);
 
   return { account, pact, algo, coin, pool };
 }

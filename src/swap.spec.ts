@@ -2,7 +2,7 @@ import algosdk from "algosdk";
 import D, { Decimal } from "decimal.js";
 
 import { PactClient } from "./client";
-import { PoolState } from "./pool";
+import { PoolState } from "./poolState";
 import { Swap } from "./swap";
 import {
   addLiqudity,
@@ -351,13 +351,10 @@ describe("swap", () => {
     const pact = new PactClient(algod);
 
     const coinAIndex = await createAsset(account, "COIN_A", 3);
-    const coinA = await pact.fetchAsset(coinAIndex);
-
     const coinBIndex = await createAsset(account, "COIN_B", 2);
-    const coinB = await pact.fetchAsset(coinBIndex);
 
-    const appId = await deployContract(account, coinA, coinB);
-    const pool = await pact.fetchPool(coinA, coinB, { appId });
+    const appId = await deployContract(account, coinAIndex, coinBIndex);
+    const pool = await pact.fetchPoolById(appId);
 
     await addLiqudity(account, pool, 20_000, 20_000);
     await pool.updateState();
@@ -371,7 +368,7 @@ describe("swap", () => {
 
     const swap = pool.prepareSwap({
       amount: 1000,
-      asset: coinA,
+      asset: pool.primaryAsset,
       slippagePct: 10,
     });
     await testSwap(swap, 20_000, 20_000, 1000, account);

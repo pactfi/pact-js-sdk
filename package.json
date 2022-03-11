@@ -39,9 +39,11 @@
   },
   "dependencies": {
     "algosdk": "^1.13.0",
+    "buffer": "^6.0.3",
     "decimal.js": "^10.3.1"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^21.0.2",
     "@rollup/plugin-typescript": "^8.3.0",
     "@types/jest": "^27.4.0",
     "@types/node": "^17.0.10",

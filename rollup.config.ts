@@ -1,3 +1,4 @@
+import commonjs from "@rollup/plugin-commonjs";
 import typescript from "@rollup/plugin-typescript";
 import nodeResolve from "rollup-plugin-node-resolve";
 import { terser } from "rollup-plugin-terser";
@@ -6,17 +7,22 @@ import pkg from "./package.json";
 
 const input = "src/index.ts";
 
-const external = ["algosdk", "decimal.js"];
+const external = ["algosdk", "decimal.js", "buffer"];
 
 export default [
   {
     // UMD
     input,
-    plugins: [typescript(), nodeResolve(), terser()],
+    plugins: [
+      typescript(),
+      commonjs(),
+      nodeResolve({ preferBuiltins: false }),
+      terser(),
+    ],
     output: {
       file: `dist/browser/${pkg.name}.min.js`,
       format: "umd",
-      name: pkg.name,
+      name: "pactsdk",
       esModule: false,
       exports: "named",
       sourcemap: true,

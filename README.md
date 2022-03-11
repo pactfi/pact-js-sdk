@@ -38,22 +38,25 @@ Optionally you can specify custom Pact API url. By default it directs to product
 const pact = new pactsdk.PactClient(algod, {pactApiUrl: "https://api.testnet.pact.fi"});
 ```
 
-Fetching a pool.
+Fetching pools by assets pair. It uses Pact API to retrieve the pool. Can return multiple pools with differing fee_bps.
 
 ```js
 const algo = await pact.fetchAsset(0);
 const otherCoin = await pact.fetchAsset(8949213);
 
-const pool = await pact.fetchPool(algo, otherCoin); // The pool will be fetched regardless of assets order.
+const pools = await pact.fetchPoolsByAssets(algo, otherCoin); // The pool will be fetched regardless of assets order.
 ```
 
-Fetching a pool also accepts optional parameters.
+You can fetch a pool by providing assets ids instead of Asset objects.
 
 ```js
-const pool = await pact.fetchPool(algo, otherCoin, {
-  appId: 456321, // Use if the pool is not visible in the Pact API.
-  feeBps: 30, // Use if your custom contract uses non-default fee.
-});
+const pools = await pact.fetchPoolsByAssets(0, 8949213)
+```
+
+You can also fetch a pool by providing app id. This way the pool is retrieved directly from the chain.
+
+```js
+const pool = await pact.fetchPoolById(456321);
 ```
 
 You can list all pools from the Pact API.

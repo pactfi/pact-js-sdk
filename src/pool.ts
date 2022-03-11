@@ -1,28 +1,13 @@
 import algosdk from "algosdk";
 
 import { Asset, fetchAssetByIndex } from "./asset";
-import { b64ToUtf8 } from "./compat";
 import { crossFetch } from "./crossFetch";
 import { encodeArray } from "./encoding";
 import { PoolCalculator } from "./poolCalculator";
+import { AppInternalState, PoolState, parseGlobalPoolState } from "./poolState";
 import { Swap } from "./swap";
 import { TransactionGroup } from "./transactionGroup";
 import { OperationType } from "./types";
-
-type AppInternalState = {
-  L: number;
-  A: number;
-  B: number;
-  LTID: number;
-};
-
-export type PoolState = {
-  totalLiquidity: number;
-  totalPrimary: number;
-  totalSecondary: number;
-  primaryAssetPrice: number;
-  secondaryAssetPrice: number;
-};
 
 export type AddLiquidityOptions = {
   address: string;
@@ -39,12 +24,6 @@ export type SwapOptions = {
   asset: Asset;
   amount: number;
   slippagePct: number;
-};
-
-export type FetchPoolOptions = {
-  pactApiUrl?: string;
-  appId?: number;
-  feeBps?: number;
 };
 
 export type ListPoolsOptions = {
@@ -116,7 +95,9 @@ type MakeDepositTxOptions = {
 
 export function listPools(pactApiUrl: string, options: ListPoolsOptions) {
   const params = new URLSearchParams(options);
-  return crossFetch(`${pactApiUrl}/api/pools?${params.toString()}`);
+  return crossFetch<ApiListPoolsResponse>(
+    `${pactApiUrl}/api/pools?${params.toString()}`,
+  );
 }
 
 export async function fetchAppState(
@@ -124,90 +105,69 @@ export async function fetchAppState(
   appId: number,
 ): Promise<AppInternalState> {
   const appData = await algod.getApplicationByID(appId).do();
-  return parseGlobalState(appData.params["global-state"]);
+  return parseGlobalPoolState(appData.params["global-state"]);
 }
 
-function parseGlobalState(kv: any) {
-  // Transform algorand key-value schema.
-  const res: any = {};
-  for (const elem of kv) {
-    const key = b64ToUtf8(elem["key"]);
-    let val: string | number;
-    if (elem["value"]["type"] == 1) {
-      val = elem["value"]["bytes"];
-    } else {
-      val = elem["value"]["uint"];
-    }
-    res[key] = val;
-  }
-  return res;
-}
+export async function fetchPoolById(algod: algosdk.Algodv2, appId: number) {
+  const appState = await fetchAppState(algod, appId);
 
-export async function fetchPool(
-  algod: algosdk.Algodv2,
-  asset_a: Asset,
-  asset_b: Asset,
-  options: FetchPoolOptions = {},
-): Promise<Pool> {
-  options = { ...options };
+  const [primaryAsset, secondaryAsset, liquidityAsset] = await Promise.all([
+    fetchAssetByIndex(algod, appState.ASSET_A),
+    fetchAssetByIndex(algod, appState.ASSET_B),
+    fetchAssetByIndex(algod, appState.LTID),
+  ]);
 
-  // Make sure that the user didn't mess up assets order.
-  // Primary asset always has lower index.
-  const [primaryAsset, secondaryAsset] = [asset_a, asset_b].sort(
-    (a, b) => a.index - b.index,
-  );
-
-  if (!options.appId) {
-    if (!options.pactApiUrl) {
-      return Promise.reject("Must provide pactifyApiUrl or appId.");
-    }
-    options.appId = await getAppIdFromAssets(
-      options.pactApiUrl,
-      primaryAsset,
-      secondaryAsset,
-    );
-    if (!options.appId) {
-      return Promise.reject(
-        `Cannot find pool for assets ${primaryAsset.index} and ${secondaryAsset.index}.`,
-      );
-    }
-  }
-
-  const appState = await fetchAppState(algod, options.appId);
-  const liquidityAsset = await fetchAssetByIndex(algod, appState.LTID);
-
-  const pool = new Pool(
+  return new Pool(
     algod,
-    options.appId,
+    appId,
     primaryAsset,
     secondaryAsset,
     liquidityAsset,
+    appState.FEE_BPS,
     appState,
   );
-
-  pool.feeBps = options.feeBps ?? 30;
-
-  return pool;
 }
 
-export async function getAppIdFromAssets(
+export async function fetchPoolsByAssets(
+  algod: algosdk.Algodv2,
+  assetA: Asset | number,
+  assetB: Asset | number,
   pactApiUrl: string,
-  primaryAsset: Asset,
-  secondaryAsset: Asset,
-): Promise<number> {
-  const data = await listPools(pactApiUrl, {
-    primary_asset__algoid: primaryAsset.index.toString(),
-    secondary_asset__algoid: secondaryAsset.index.toString(),
-  });
-  if (data.results.length) {
-    return parseInt(data.results[0].appid);
+): Promise<Pool[]> {
+  const assets = [assetA, assetB].map((a) =>
+    a instanceof Asset ? a.index : a,
+  );
+
+  // Make sure that the user didn't mess up assets order.
+  // Primary asset always has lower index.
+  const [primaryAsset, secondaryAsset] = assets.sort();
+
+  if (!pactApiUrl) {
+    return Promise.reject("Must provide pactApiUrl.");
   }
-  return 0;
+
+  const appIds = await getAppIdsFromAssets(
+    pactApiUrl,
+    primaryAsset,
+    secondaryAsset,
+  );
+
+  return Promise.all(appIds.map((appId) => fetchPoolById(algod, appId)));
+}
+
+export async function getAppIdsFromAssets(
+  pactApiUrl: string,
+  primaryAssetIndex: number,
+  secondaryAssetIndex: number,
+): Promise<number[]> {
+  const data = await listPools(pactApiUrl, {
+    primary_asset__algoid: primaryAssetIndex.toString(),
+    secondary_asset__algoid: secondaryAssetIndex.toString(),
+  });
+  return data.results.map((pool) => parseInt(pool.appid));
 }
 
 export class Pool {
-  feeBps = 30;
-
   calculator = new PoolCalculator(this);
 
   state = this.parseInternalState(this.internalState);
@@ -218,6 +178,7 @@ export class Pool {
     public primaryAsset: Asset,
     public secondaryAsset: Asset,
     public liquidityAsset: Asset,
+    public feeBps: number,
     public internalState: AppInternalState,
   ) {}
 

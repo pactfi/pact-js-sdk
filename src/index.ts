@@ -4,7 +4,6 @@ export * from "./swap";
 export { Asset } from "./asset";
 export {
   Pool,
-  PoolState,
   AddLiquidityOptions,
   RemoveLiquidityOptions,
   SwapOptions,
@@ -13,3 +12,5 @@ export {
   ApiPool,
   ApiAsset,
 } from "./pool";
+export { PoolState } from "./poolState";
+export { decodeUint64Array } from "./encoding";

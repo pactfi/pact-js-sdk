@@ -8,7 +8,7 @@ const pactsdk = require('../dist/cjs/pactsdk.js');
   const algo = await pact.fetchAsset(0);
   const jamnik = await pact.fetchAsset(41409282);
 
-  const pool = await pact.fetchPool(algo, jamnik);
+  const pools = await pact.fetchPoolsByAssets(algo, jamnik);
 
-  console.log(`State ${pool.state}`);
+  console.log(`State ${pools[0].state}`);
 })();

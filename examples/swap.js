@@ -16,9 +16,9 @@ const account = algosdk.mnemonicToSecretKey('<mnemonic>');
   console.log(`OptIn transaction ${sentOptInTxn.txId}`);
   await algosdk.waitForConfirmation(pact.algod, sentOptInTxn.txId, 2);
 
-  const pool = await pact.fetchPool(algo, jamnik);
+  const pools = await pact.fetchPoolsByAssets(algo, jamnik);
 
-  const swap = pool.prepareSwap({
+  const swap = pools[0].prepareSwap({
     asset: algo,
     amount: 100_000,
     slippagePct: 2,
