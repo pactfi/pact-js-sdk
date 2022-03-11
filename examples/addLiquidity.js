@@ -19,13 +19,13 @@ const account = algosdk.mnemonicToSecretKey('<mnemonic>');
   console.log(`OptIn transaction ${sentOptInTxn.txId}`);
   await algosdk.waitForConfirmation(algod, sentOptInTxn.txId, 2);
 
-  const addLiqTx = await pool.prepareAddLiquidityTx({
+  const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
     address: account.addr,
     primaryAssetAmount: 1_000_000,
     secondaryAssetAmount: 500_000,
   });
-  const signedTx = addLiqTx.signTxn(account.sk)
-  const sentTx = await algod.sendRawTransaction(signedTx).do();
+  const signedTx = addLiqTxGroup.signTxn(account.sk)
+  await algod.sendRawTransaction(signedTx).do();
 
-  console.log(`Transaction ${sentTx.txId}`);
+  console.log(`Transaction ${addLiqTxGroup.groupId}`);
 })();

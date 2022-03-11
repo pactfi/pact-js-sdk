@@ -38,11 +38,14 @@ export class Asset {
   public decimals = 0;
   public ratio = 1;
 
-  constructor(private algod: algosdk.Algodv2, public index: number) {}
+  constructor(protected algod: algosdk.Algodv2, public index: number) {}
 
   async prepareOptInTx(address: string) {
     const suggestedParams = await this.algod.getTransactionParams().do();
+    return this.buildOptInTx(address, suggestedParams);
+  }
 
+  buildOptInTx(address: string, suggestedParams: algosdk.SuggestedParams) {
     return algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
       from: address,
       to: address,
@@ -59,9 +62,13 @@ export class Asset {
 
   async getHolding(address: string): Promise<number | null> {
     const accountInfo = await this.algod.accountInformation(address).do();
-    for (const asset of accountInfo["assets"]) {
+    return this.getHoldingFromAccountInformation(accountInfo);
+  }
+
+  getHoldingFromAccountInformation(accountInformation: any) {
+    for (const asset of accountInformation.assets) {
       if (asset["asset-id"] === this.index) {
-        return asset["amount"];
+        return asset.amount;
       }
     }
     return null;

@@ -111,7 +111,7 @@ export class PoolCalculator {
     }
   }
 
-  getPriceChangePct(
+  getPriceImpactPct(
     asset: Asset,
     primaryLiqChange: number,
     secondaryLiqChange: number,
@@ -125,7 +125,7 @@ export class PoolCalculator {
       asset.index === this.pool.primaryAsset.index
         ? this.primaryAssetPrice
         : this.secondaryAssetPrice;
-    return newPrice.div(oldPrice).mul(100).sub(100);
+    return newPrice.mul(100).div(oldPrice).sub(100);
   }
 
   getSwapPrice(assetOut: Asset, amountOut: number): number {

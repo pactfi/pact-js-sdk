@@ -1,8 +1,9 @@
 import algosdk from "algosdk";
+import D from "decimal.js";
 
 import { Asset, fetchAssetByIndex } from "./asset";
 import { crossFetch } from "./crossFetch";
-import { encodeArray } from "./encoding";
+import { encode, encodeArray } from "./encoding";
 import { PoolCalculator } from "./poolCalculator";
 import { AppInternalState, PoolState, parseGlobalPoolState } from "./poolState";
 import { Swap } from "./swap";
@@ -13,6 +14,7 @@ export type AddLiquidityOptions = {
   address: string;
   primaryAssetAmount: number;
   secondaryAssetAmount: number;
+  note?: Uint8Array;
 };
 
 export type RemoveLiquidityOptions = {
@@ -24,6 +26,11 @@ export type SwapOptions = {
   asset: Asset;
   amount: number;
   slippagePct: number;
+};
+
+export type SwapTxOptions = {
+  swap: Swap;
+  address: string;
 };
 
 export type ListPoolsOptions = {
@@ -57,6 +64,7 @@ export type ApiPool = {
   tvl_usd: string;
   volume_7d: string;
   volume_24h: string;
+  apr_7d: string;
   id: number;
   is_verified: boolean;
   pool_asset: ApiAsset;
@@ -80,17 +88,22 @@ export type ApiAsset = {
 
 type MakeNoopTxOptions = {
   address: string;
-  suggestedParams: any;
+  suggestedParams: algosdk.SuggestedParams;
   fee: number;
   args: (OperationType | number)[];
   extraAsset?: Asset;
+  note?: Uint8Array;
 };
 
 type MakeDepositTxOptions = {
   address: string;
   asset: Asset;
   amount: number;
-  suggestedParams: any;
+  suggestedParams: algosdk.SuggestedParams;
+};
+
+type SuggestedParamsOption = {
+  suggestedParams: algosdk.SuggestedParams;
 };
 
 export function listPools(pactApiUrl: string, options: ListPoolsOptions) {
@@ -173,7 +186,7 @@ export class Pool {
   state = this.parseInternalState(this.internalState);
 
   constructor(
-    private algod: algosdk.Algodv2,
+    protected algod: algosdk.Algodv2,
     public appId: number,
     public primaryAsset: Asset,
     public secondaryAsset: Asset,
@@ -202,49 +215,91 @@ export class Pool {
     return this.state;
   }
 
-  async prepareAddLiquidityTx(options: AddLiquidityOptions) {
+  async prepareAddLiquidityTxGroup(options: AddLiquidityOptions) {
     const suggestedParams = await this.algod.getTransactionParams().do();
+    const txs = this.buildAddLiquidityTxs({ ...options, suggestedParams });
+    return new TransactionGroup(txs);
+  }
 
-    const txn1 = this.makeDepositTx({
+  buildAddLiquidityTxs(options: AddLiquidityOptions & SuggestedParamsOption) {
+    let txs: algosdk.Transaction[] = [];
+    let { primaryAssetAmount, secondaryAssetAmount } = options;
+
+    if (this.calculator.isEmpty) {
+      // Adding initial liquidity has a limitation that the product of 2 assets must be lower then 2**64. Let's check if we can fit below the limit.
+      const maxProduct = new D(2).pow(new D(64));
+      const product = new D(primaryAssetAmount).mul(secondaryAssetAmount);
+      if (product.gte(maxProduct)) {
+        // Need to split the liquidity into two chunks.
+        const divisor = new D(product).div(maxProduct).sqrt().add(1);
+        const primarySmallAmount = new D(primaryAssetAmount)
+          .div(divisor)
+          .trunc()
+          .toNumber();
+        const secondarySmallAmount = new D(secondaryAssetAmount)
+          .div(divisor)
+          .trunc()
+          .toNumber();
+
+        primaryAssetAmount -= primarySmallAmount;
+        secondaryAssetAmount -= secondarySmallAmount;
+
+        txs = this.buildAddLiquidityTxs({
+          ...options,
+          primaryAssetAmount: primarySmallAmount,
+          secondaryAssetAmount: secondarySmallAmount,
+          note: encode("Initial add liquidity"),
+        });
+      }
+    }
+
+    const tx1 = this.makeDepositTx({
       address: options.address,
       asset: this.primaryAsset,
-      amount: options.primaryAssetAmount,
-      suggestedParams,
+      amount: primaryAssetAmount,
+      suggestedParams: options.suggestedParams,
     });
-    const txn2 = this.makeDepositTx({
+    const tx2 = this.makeDepositTx({
       address: options.address,
       asset: this.secondaryAsset,
-      amount: options.secondaryAssetAmount,
-      suggestedParams,
+      amount: secondaryAssetAmount,
+      suggestedParams: options.suggestedParams,
     });
-    const txn3 = this.makeApplicationNoopTx({
+    const tx3 = this.makeApplicationNoopTx({
       address: options.address,
-      suggestedParams,
+      suggestedParams: options.suggestedParams,
       fee: 3000,
       args: ["ADDLIQ", 0],
       extraAsset: this.liquidityAsset,
+      note: options.note,
     });
 
-    return new TransactionGroup([txn1, txn2, txn3]);
+    return [...txs, tx1, tx2, tx3];
   }
 
-  async prepareRemoveLiquidityTx(options: RemoveLiquidityOptions) {
+  async prepareRemoveLiquidityTxGroup(options: RemoveLiquidityOptions) {
     const suggestedParams = await this.algod.getTransactionParams().do();
+    const txs = this.buildRemoveLiquidityTxs({ ...options, suggestedParams });
+    return new TransactionGroup(txs);
+  }
 
+  buildRemoveLiquidityTxs(
+    options: RemoveLiquidityOptions & SuggestedParamsOption,
+  ) {
     const txn1 = this.makeDepositTx({
       address: options.address,
       amount: options.amount,
       asset: this.liquidityAsset,
-      suggestedParams,
+      suggestedParams: options.suggestedParams,
     });
     const txn2 = this.makeApplicationNoopTx({
       address: options.address,
-      suggestedParams,
+      suggestedParams: options.suggestedParams,
       fee: 3000,
       args: ["REMLIQ", 0, 0], // min expected primary, min expected secondary
     });
 
-    return new TransactionGroup([txn1, txn2]);
+    return [txn1, txn2];
   }
 
   prepareSwap(options: SwapOptions): Swap {
@@ -260,9 +315,17 @@ export class Pool {
     );
   }
 
-  async prepareSwapTx(swap: Swap, address: string) {
+  async prepareSwapTxGroup(options: SwapTxOptions) {
     const suggestedParams = await this.algod.getTransactionParams().do();
+    const txs = this.buildSwapTxs({ ...options, suggestedParams });
+    return new TransactionGroup(txs);
+  }
 
+  buildSwapTxs({
+    address,
+    swap,
+    suggestedParams,
+  }: SwapTxOptions & SuggestedParamsOption) {
     const txn1 = this.makeDepositTx({
       address,
       amount: swap.amountOut,
@@ -276,7 +339,7 @@ export class Pool {
       args: ["SWAP", swap.effect.minimumAmountIn],
     });
 
-    return new TransactionGroup([txn1, txn2]);
+    return [txn1, txn2];
   }
 
   private makeDepositTx(options: MakeDepositTxOptions) {
@@ -316,6 +379,7 @@ export class Pool {
         fee: options.fee,
         flatFee: true,
       },
+      note: options.note,
     });
   }
 

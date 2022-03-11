@@ -119,23 +119,23 @@ Managing the liquidity.
 
 ```js
 // Add liquidity.
-const addLiqTx = await pool.prepareAddLiquidityTx({
+const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
   address: account.addr,
   primaryAssetAmount: 100_000,
   secondaryAssetAmount: 50_000,
 });
-const signedAddLiqTx = addLiqTx.signTxn(account.sk);
+const signedAddLiqTx = addLiqTxGroup.signTxn(account.sk);
 const sentAddLiqTx = await algod.sendRawTransaction(signedAddLiqTx).do();
 await algosdk.waitForConfirmation(algod, sentAddLiqTx.txId, 2);
 
 // Remove liquidity.
-const removeLiqTx = await pool.prepareRemoveLiquidityTx({
+const removeLiqTxGroup = await pool.prepareRemoveLiquidityTxGroup({
   address: account.addr,
   amount: 100_000,
 });
-const signedRemoveLiqTx = removeLiqTx.signTxn(account.sk);
-const sentRemoveLiqtx = await algod.sendRawTransaction(signedRemoveLiqTx).do();
-await algosdk.waitForConfirmation(algod, sentRemoveLiqtx.txId, 2);
+const signedRemoveLiqTx = removeLiqTxGroup.signTxn(account.sk);
+const sentRemoveLiqTx = await algod.sendRawTransaction(signedRemoveLiqTx).do();
+await algosdk.waitForConfirmation(algod, sentRemoveLiqTx.txId, 2);
 ```
 
 Making a swap.
@@ -162,8 +162,8 @@ console.log(swap.effect);
 // }
 
 // Let's submit the swap.
-const swapTx = await swap.prepareTx(account.addr);
-const signedTxs = swapTx.signTxn(account.sk)
+const swapTxGroup = await swap.prepareTxGroup(account.addr);
+const signedTxs = swapTxGroup.signTxn(account.sk)
 const tx = await algod.sendRawTransaction(signedTxs).do();
 await algosdk.waitForConfirmation(algod, tx.txId, 2);
 ```

@@ -8,8 +8,8 @@ export type SwapEffect = {
   minimumAmountIn: number;
   primaryAssetPriceAfterSwap: number;
   secondaryAssetPriceAfterSwap: number;
-  primaryAssetPriceChangePct: number;
-  secondaryAssetPriceChangePct: number;
+  primaryAssetPriceImpactPct: number;
+  secondaryAssetPriceImpactPct: number;
   fee: number;
   price: number;
 };
@@ -29,8 +29,8 @@ export class Swap {
     this.effect = this.buildEffect();
   }
 
-  prepareTx(address: string): Promise<TransactionGroup> {
-    return this.pool.prepareSwapTx(this, address);
+  prepareTxGroup(address: string): Promise<TransactionGroup> {
+    return this.pool.prepareSwapTxGroup({ swap: this, address });
   }
 
   private validateSwap() {
@@ -84,15 +84,15 @@ export class Swap {
       price: this.pool.calculator.getSwapPrice(this.assetOut, this.amountOut),
       primaryAssetPriceAfterSwap,
       secondaryAssetPriceAfterSwap,
-      primaryAssetPriceChangePct: this.pool.calculator
-        .getPriceChangePct(
+      primaryAssetPriceImpactPct: this.pool.calculator
+        .getPriceImpactPct(
           this.pool.primaryAsset,
           primaryLiqChange,
           secondaryLiqChange,
         )
         .toNumber(),
-      secondaryAssetPriceChangePct: this.pool.calculator
-        .getPriceChangePct(
+      secondaryAssetPriceImpactPct: this.pool.calculator
+        .getPriceImpactPct(
           this.pool.secondaryAsset,
           primaryLiqChange,
           secondaryLiqChange,

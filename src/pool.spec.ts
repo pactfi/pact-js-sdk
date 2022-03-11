@@ -3,6 +3,7 @@ import { PactClient } from "./client";
 import {
   TestBed,
   algod,
+  createAsset,
   deployContract,
   makeFreshTestBed,
   signAndSend,
@@ -176,6 +177,39 @@ describe("Pool", () => {
       `Asset with index ${shitcoin.index} is not a pool asset.`,
     );
   });
+
+  it("should add big liquidity to an empty pool using split", async () => {
+    const { pact, account } = testBed;
+    const coinAIndex = await createAsset(account, "coinA", 0, 2 ** 50 - 1);
+    const coinBIndex = await createAsset(account, "coinB", 0, 2 ** 50 - 1);
+
+    const appId = await deployContract(account, coinAIndex, coinBIndex);
+    const pool = await pact.fetchPoolById(appId);
+
+    expect(pool.calculator.isEmpty).toBe(true);
+
+    const liqOptInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
+    await signAndSend(liqOptInTx, account);
+
+    // Adding initial liquidity has a limitation that the product of 2 assets must be lower then 2**64.
+    // Let's go beyond that limit and check what happens.
+    const [primaryAssetAmount, secondaryAssetAmount] = [2 ** 40, 2 ** 30];
+
+    const txGroup = await pool.prepareAddLiquidityTxGroup({
+      address: account.addr,
+      primaryAssetAmount,
+      secondaryAssetAmount,
+    });
+
+    // liquidity is split into two chunks, so 6 txs instead of 3.
+    expect(txGroup.transactions.length).toBe(6);
+
+    await signAndSend(txGroup, account);
+
+    await pool.updateState();
+    expect(pool.state.totalPrimary).toBe(primaryAssetAmount);
+    expect(pool.state.totalSecondary).toBe(secondaryAssetAmount);
+  });
 });
 
 it("Pool e2e scenario", async () => {
@@ -194,12 +228,13 @@ it("Pool e2e scenario", async () => {
   await signAndSend(liqOptInTx, account);
 
   // Add liquidity.
-  const addLiqTx = await pool.prepareAddLiquidityTx({
+  const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
     address: account.addr,
     primaryAssetAmount: 100_000,
     secondaryAssetAmount: 100_000,
   });
-  await signAndSend(addLiqTx, account);
+  expect(addLiqTxGroup.transactions.length).toBe(3);
+  await signAndSend(addLiqTxGroup, account);
   await pool.updateState();
   expect(pool.state).toEqual({
     totalLiquidity: 100_000,
@@ -210,11 +245,12 @@ it("Pool e2e scenario", async () => {
   });
 
   // Remove liquidity.
-  const removeLiqTx = await pool.prepareRemoveLiquidityTx({
+  const removeLiqTxGroup = await pool.prepareRemoveLiquidityTxGroup({
     address: account.addr,
     amount: 10_000,
   });
-  await signAndSend(removeLiqTx, account);
+  expect(removeLiqTxGroup.transactions.length).toBe(2);
+  await signAndSend(removeLiqTxGroup, account);
   await pool.updateState();
   expect(pool.state).toEqual({
     totalLiquidity: 90_000,
@@ -230,8 +266,9 @@ it("Pool e2e scenario", async () => {
     amount: 20_000,
     slippagePct: 2,
   });
-  const algoSwapTx = await algoSwap.prepareTx(account.addr);
-  await signAndSend(algoSwapTx, account);
+  const algoSwapTxGroup = await algoSwap.prepareTxGroup(account.addr);
+  expect(algoSwapTxGroup.transactions.length).toBe(2);
+  await signAndSend(algoSwapTxGroup, account);
   await pool.updateState();
   expect(pool.state.totalLiquidity).toBe(90_000);
   expect(pool.state.totalPrimary > 100_000).toBe(true);
@@ -245,8 +282,8 @@ it("Pool e2e scenario", async () => {
     amount: 50_000,
     slippagePct: 2,
   });
-  const coinSwapTx = await coinSwap.prepareTx(account.addr);
-  await signAndSend(coinSwapTx, account);
+  const coinSwapTxGroup = await coinSwap.prepareTxGroup(account.addr);
+  await signAndSend(coinSwapTxGroup, account);
   await pool.updateState();
   expect(pool.state.totalLiquidity).toBe(90_000);
   expect(pool.state.totalPrimary < 100_000).toBe(true);

@@ -22,7 +22,9 @@ export type PoolState = {
 
 export function parseGlobalPoolState(rawState: any[]): AppInternalState {
   const state = parseState(rawState);
-  const CONFIG = state.CONFIG;
+
+  // Old contracts don't have CONFIG (testnet only). The default is [0, 0, 30].
+  const CONFIG = state.CONFIG ?? "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAe";
   delete state.CONFIG;
   const [ASSET_A, ASSET_B, FEE_BPS] = decodeUint64Array(CONFIG);
   return { ASSET_A, ASSET_B, FEE_BPS, ...state };

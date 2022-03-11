@@ -13,6 +13,7 @@ import {
   newAccount,
   signAndSend,
 } from "./testUtils";
+import { TransactionGroup } from "./transactionGroup";
 
 async function testSwap(
   swap: Swap,
@@ -25,8 +26,8 @@ async function testSwap(
 
   // Perform the swap.
   const oldState = swap.pool.state;
-  const swapTx = await swap.prepareTx(account.addr);
-  await signAndSend(swapTx, account);
+  const swapTxGroup = await swap.prepareTxGroup(account.addr);
+  await signAndSend(swapTxGroup, account);
   await swap.pool.updateState();
 
   // Compare the simulated effect with what really happened on the blockchain.
@@ -89,15 +90,15 @@ function assertPoolState(swap: Swap, oldState: PoolState, newState: PoolState) {
   );
 
   // We use toFixed(5) to avoid numerical differences as tests don't use decimal calculations for simplicity.
-  expect(swap.effect.primaryAssetPriceChangePct.toFixed(5)).toBe(
+  expect(swap.effect.primaryAssetPriceImpactPct.toFixed(5)).toBe(
     (
-      (newState.primaryAssetPrice / oldState.primaryAssetPrice) * 100 -
+      (newState.primaryAssetPrice * 100) / oldState.primaryAssetPrice -
       100
     ).toFixed(5),
   );
-  expect(swap.effect.secondaryAssetPriceChangePct.toFixed(5)).toBe(
+  expect(swap.effect.secondaryAssetPriceImpactPct.toFixed(5)).toBe(
     (
-      (newState.secondaryAssetPrice / oldState.secondaryAssetPrice) * 100 -
+      (newState.secondaryAssetPrice * 100) / oldState.secondaryAssetPrice -
       100
     ).toFixed(5),
   );
@@ -233,12 +234,12 @@ describe("swap", () => {
 
     // Perform the swaps and check if the simulated effect matches what really happened in the blockchain.
 
-    const swapATx = await swapA.prepareTx(TestBedA.account.addr);
-    await signAndSend(swapATx, TestBedA.account);
+    const swapATxGroup = await swapA.prepareTxGroup(TestBedA.account.addr);
+    await signAndSend(swapATxGroup, TestBedA.account);
     await TestBedA.pool.updateState();
 
-    const swapBTx = await swapB.prepareTx(TestBedB.account.addr);
-    await signAndSend(swapBTx, TestBedB.account);
+    const swapBTxGroup = await swapB.prepareTxGroup(TestBedB.account.addr);
+    await signAndSend(swapBTxGroup, TestBedB.account);
     await TestBedB.pool.updateState();
 
     expect(TestBedA.pool.state.totalSecondary).toBe(
@@ -309,16 +310,16 @@ describe("swap", () => {
       asset: algo,
       slippagePct: 0,
     });
-    const swapTx = await swap.prepareTx(account.addr);
-    await signAndSend(swapTx, account);
+    const swapTxGroup = await swap.prepareTxGroup(account.addr);
+    await signAndSend(swapTxGroup, account);
 
     // Swap A and B should fail because slippage is too low.
-    const swapATx = await swapA.prepareTx(account.addr);
-    expect(() => signAndSend(swapATx, account)).rejects.toMatchObject({
+    const swapATxGroup = await swapA.prepareTxGroup(account.addr);
+    expect(() => signAndSend(swapATxGroup, account)).rejects.toMatchObject({
       status: 400,
     });
-    const swapBTx = await swapB.prepareTx(account.addr);
-    expect(() => signAndSend(swapBTx, account)).rejects.toMatchObject({
+    const swapBTxGroup = await swapB.prepareTxGroup(account.addr);
+    expect(() => signAndSend(swapBTxGroup, account)).rejects.toMatchObject({
       status: 400,
     });
 
@@ -326,16 +327,16 @@ describe("swap", () => {
     expect(pool.state.totalSecondary).toBe(20_000 - swap.effect.amountIn); // no change yet
 
     // Swap C and D should pass;
-    const swapCTx = await swapC.prepareTx(account.addr);
-    await signAndSend(swapCTx, account);
+    const swapCTxGroup = await swapC.prepareTxGroup(account.addr);
+    await signAndSend(swapCTxGroup, account);
     await pool.updateState();
     const swappedCAmount =
       20_000 - swap.effect.amountIn - pool.state.totalSecondary;
     expect(swappedCAmount).toBeLessThan(swapC.effect.amountIn);
     expect(swappedCAmount).toBeGreaterThan(swapC.effect.minimumAmountIn);
 
-    const swapDTx = await swapD.prepareTx(account.addr);
-    await signAndSend(swapDTx, account);
+    const swapDTxGroup = await swapD.prepareTxGroup(account.addr);
+    await signAndSend(swapDTxGroup, account);
     await pool.updateState();
     const swappedDAmount =
       20_000 -
@@ -372,5 +373,32 @@ describe("swap", () => {
       slippagePct: 10,
     });
     await testSwap(swap, 20_000, 20_000, 1000, account);
+  });
+
+  it("swap and optin in a single group", async () => {
+    const otherAccount = await newAccount();
+    const { pact, account, coin, algo, pool } = await makeFreshTestBed();
+    const [primaryLiq, secondaryLiq, amount] = [20_000, 20_000, 1_000];
+    await addLiqudity(account, pool, primaryLiq, secondaryLiq);
+
+    const swap = pool.prepareSwap({
+      amount,
+      asset: algo,
+      slippagePct: 10,
+    });
+
+    const suggestedParams = await pact.algod.getTransactionParams().do();
+    const optInTx = coin.buildOptInTx(otherAccount.addr, suggestedParams);
+    const txs = [
+      optInTx,
+      ...pool.buildSwapTxs({
+        swap,
+        address: otherAccount.addr,
+        suggestedParams,
+      }),
+    ];
+
+    const group = new TransactionGroup(txs);
+    await signAndSend(group, otherAccount);
   });
 });
