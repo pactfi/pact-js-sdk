@@ -1,6 +1,6 @@
 {
   "name": "@pactfi/pactsdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "JavaScript SDK for Pact smart contracts",
   "main": "dist/cjs/@pactfi/pactsdk.js",
   "browser": "dist/browser/@pactfi/pactsdk.min.js",
