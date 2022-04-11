@@ -348,14 +348,14 @@ export class Pool {
       return algosdk.makePaymentTxnWithSuggestedParamsFromObject({
         from: options.address,
         to: this.getEscrowAddress(),
-        amount: options.amount,
+        amount: BigInt(options.amount),
         suggestedParams: options.suggestedParams,
       });
     }
     return algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
       from: options.address,
       to: this.getEscrowAddress(),
-      amount: options.amount,
+      amount: BigInt(options.amount),
       assetIndex: options.asset.index,
       suggestedParams: options.suggestedParams,
     });

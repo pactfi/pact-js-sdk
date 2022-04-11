@@ -36,7 +36,7 @@ export async function createAsset(
   const txn = algosdk.makeAssetCreateTxnWithSuggestedParams(
     account.addr,
     undefined, // note
-    totalIssuance,
+    BigInt(totalIssuance),
     decimals,
     false, // defaultFrozen
     account.addr, // manager
