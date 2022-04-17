@@ -9,7 +9,7 @@ const account = algosdk.mnemonicToSecretKey('<mnemonic>');
 
   // Let's do a swap and optin in a single transaction group.
 
-  const pool = await pact.fetchPoolById(46542313);
+  const pool = await pact.fetchPoolById(85767720);
 
   const swap = pool.prepareSwap({
     asset: pool.primaryAsset,

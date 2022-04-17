@@ -2,6 +2,9 @@ import { isqrt } from "./isqrt";
 import { Pool, StableswapPoolParams } from "./pool";
 import { SwapCalculator } from "./types";
 
+/**
+ * An implementation of a math behind stableswap pools.
+ */
 export class StableswapCalculator implements SwapCalculator {
   constructor(public pool: Pool) {}
 
