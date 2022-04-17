@@ -3,6 +3,9 @@ import D from "decimal.js";
 import { Pool } from "./pool";
 import { SwapCalculator } from "./types";
 
+/**
+ * An implementation of a math behind constant product pools.
+ */
 export class ConstantProductCalculator implements SwapCalculator {
   constructor(public pool: Pool) {}
 
