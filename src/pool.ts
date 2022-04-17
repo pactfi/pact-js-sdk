@@ -153,7 +153,7 @@ export async function fetchPoolsByAssets(
 
   // Make sure that the user didn't mess up assets order.
   // Primary asset always has lower index.
-  const [primaryAsset, secondaryAsset] = assets.sort();
+  const [primaryAsset, secondaryAsset] = assets.sort((a, b) => a - b);
 
   if (!pactApiUrl) {
     return Promise.reject("Must provide pactApiUrl.");
