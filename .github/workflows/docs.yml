@@ -1,0 +1,13 @@
+name: Docs
+on:
+  push:
+    tags:
+      - "**"
+jobs:
+  Push docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+      - run: npm install
+      - run: ./push-docs.sh
