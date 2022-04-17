@@ -30,15 +30,42 @@ export async function fetchAssetByIndex(
   return asset;
 }
 
+/**
+ * Describes the basic data and the utility functions for an Algorand Standard Asset.
+ * 
+ * The class includes basic details of the asset like name, unitName, number of 
+ * decimals supported and ratio from base units to unit. 
+ */
 export class Asset {
+
+  /**
+   * A cache of the asset index to Asset to reduce the time for 
+   * looking up basic details about the asset.
+   */
   static assetsCache: Record<number, Asset> = {};
 
-  public name? = "";
-  public unitName? = "";
+  /**
+   * The name of the Asset if there is one. This may be empty. 
+   */
+  public name?= "";
+  /**
+   * The name of a unit of the asset if there is one. This may be empty.
+   */
+  public unitName?= "";
+
+  /**
+   * The number of decimal places that the Asset supports.
+   */
   public decimals = 0;
+
+  /**
+   * The ratio between a base unit and the unit of the asset. 
+   * This is used to convert between an integer and floating point 
+   * representation of the asset without loss of precession. 
+   */
   public ratio = 1;
 
-  constructor(protected algod: algosdk.Algodv2, public index: number) {}
+  constructor(protected algod: algosdk.Algodv2, public index: number) { }
 
   async prepareOptInTx(address: string) {
     const suggestedParams = await this.algod.getTransactionParams().do();
