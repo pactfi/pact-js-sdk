@@ -8,15 +8,15 @@ const account = algosdk.mnemonicToSecretKey('<mnemonic>');
   const pact = new pactsdk.PactClient(algod);
 
   const algo = await pact.fetchAsset(0)
-  const jamnik = await pact.fetchAsset(41409282)
+  const usdc = await pact.fetchAsset(37074699)
 
-  // Opt-in for jamnik
-  const optInTxn = await jamnik.prepareOptInTx(account.addr);
+  // Opt-in for usdc
+  const optInTxn = await usdc.prepareOptInTx(account.addr);
   sentOptInTxn = await pact.algod.sendRawTransaction(optInTxn.signTxn(account.sk)).do();
   console.log(`OptIn transaction ${sentOptInTxn.txId}`);
   await algosdk.waitForConfirmation(pact.algod, sentOptInTxn.txId, 2);
 
-  const pools = await pact.fetchPoolsByAssets(algo, jamnik);
+  const pools = await pact.fetchPoolsByAssets(algo, usdc);
 
   const swap = pools[0].prepareSwap({
     asset: algo,
