@@ -339,7 +339,7 @@ function swapTestCase(poolType: PoolType) {
       amount,
       asset: algo,
       slippagePct: 10,
-      reverse: true,
+      swapForExact: true,
     });
 
     expect(reversedSwap.assetReceived).toBe(coin);
@@ -374,7 +374,7 @@ function swapTestCase(poolType: PoolType) {
       amount,
       asset: algo,
       slippagePct: 10,
-      reverse: true,
+      swapForExact: true,
     });
 
     expect(reversedSwap.effect.amountReceived).toBe(2000);

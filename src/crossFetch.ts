@@ -2,6 +2,13 @@ function isBrowser(): boolean {
   return typeof window !== "undefined";
 }
 
+/**
+ * Returns the response from the url. If in the browser it will use the fetch method otherwise it will use nodejs http or https module.
+ *
+ * @param url The url to fetch the data from.
+ *
+ * @returns json data from the url.
+ */
 export async function crossFetch<T>(url: string): Promise<T> {
   if (isBrowser()) {
     const response = await fetch(url);

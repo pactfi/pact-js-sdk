@@ -1,14 +1,18 @@
-const { default: algosdk } = require('algosdk');
-const pactsdk = require('../dist/cjs/pactsdk.js');
+/**
+ * This example fetches a pool and reads its state.
+ */
+
+import algosdk from "algosdk";
+import pactsdk from "@pactfi/pactsdk";
 
 (async function() {
-  const algod = new algosdk.Algodv2(); // provide options
+  const algod = new algosdk.Algodv2("<token>", "<url>");
   const pact = new pactsdk.PactClient(algod);
 
   const algo = await pact.fetchAsset(0);
-  const jamnik = await pact.fetchAsset(41409282);
+  const usdc = await pact.fetchAsset(31566704);
 
-  const pools = await pact.fetchPoolsByAssets(algo, jamnik);
+  const pool = await pact.fetchPoolsByAssets(algo, usdc)[0];
 
-  console.log(`State ${pools[0].state}`);
+  console.log(`State ${pool.state}`);
 })();

@@ -1,24 +1,28 @@
-const { default: algosdk } = require('algosdk');
-const pactsdk = require('../dist/cjs/pactsdk.js');
+/**
+ * This example performs a swap on a pool.
+ */
+
+import algosdk from "algosdk";
+import pactsdk from "@pactfi/pactsdk";
 
 const account = algosdk.mnemonicToSecretKey('<mnemonic>');
 
 (async function() {
-  const algod = new algosdk.Algodv2();
+  const algod = new algosdk.Algodv2("<token>", "<url>");
   const pact = new pactsdk.PactClient(algod);
 
   const algo = await pact.fetchAsset(0)
-  const jamnik = await pact.fetchAsset(41409282)
+  const usdc = await pact.fetchAsset(37074699)
+  const pool = await pact.fetchPoolsByAssets(algo, usdc)[0];
 
-  // Opt-in for jamnik
-  const optInTxn = await jamnik.prepareOptInTx(account.addr);
+  // Opt-in for usdc.
+  const optInTxn = await usdc.prepareOptInTx(account.addr);
   sentOptInTxn = await pact.algod.sendRawTransaction(optInTxn.signTxn(account.sk)).do();
-  console.log(`OptIn transaction ${sentOptInTxn.txId}`);
   await algosdk.waitForConfirmation(pact.algod, sentOptInTxn.txId, 2);
+  console.log(`OptIn transaction ${sentOptInTxn.txId}`);
 
-  const pools = await pact.fetchPoolsByAssets(algo, jamnik);
-
-  const swap = pools[0].prepareSwap({
+  // Do a swap.
+  const swap = pool.prepareSwap({
     asset: algo,
     amount: 100_000,
     slippagePct: 2,
@@ -26,6 +30,5 @@ const account = algosdk.mnemonicToSecretKey('<mnemonic>');
   const swapTxGroup = await swap.prepareTxGroup(account.addr);
   const signedTxs = swapTxGroup.signTxn(account.sk)
   await algod.sendRawTransaction(signedTxs).do();
-
-  console.log(`Transaction ${swapTxGroup.groupId}`);
+  console.log(`Swap transaction group ${swapTxGroup.groupId}`);
 })();

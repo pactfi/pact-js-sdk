@@ -6,6 +6,11 @@ import { Pool } from "./pool";
 import { StableswapCalculator } from "./stableswapCalculator";
 import { SwapCalculator } from "./types";
 
+/**
+ * Contains functions for calculation statistics and other numerical data about the pool.
+ *
+ * The pool calculator uses internal data from the pool to calculate values like the Prices, Net Amounts and values for the swap. Uses different formulas based on pool type.
+ */
 export class PoolCalculator {
   swapCalculator: SwapCalculator;
 
@@ -35,10 +40,20 @@ export class PoolCalculator {
     return this.pool.internalState.B / this.pool.secondaryAsset.ratio;
   }
 
+  /**
+   * Checks if the pool is currently empty.
+   *
+   * A pool is empty if either the primary or secondary asset is zero.
+   *
+   * @returns true if the pool is empty, false otherwise.
+   */
   get isEmpty() {
     return this.primaryAssetAmount === 0n || this.secondaryAssetAmount === 0n;
   }
 
+  /**
+   * @returns Amount of secondary assets for a single primary asset.
+   */
   get primaryAssetPrice() {
     return this.swapCalculator.getPrice(
       this.primaryAssetAmountDecimal,
@@ -46,6 +61,9 @@ export class PoolCalculator {
     );
   }
 
+  /**
+   * @returns Amount of primary assets for a single secondary asset.
+   */
   get secondaryAssetPrice() {
     return this.swapCalculator.getPrice(
       this.secondaryAssetAmountDecimal,
@@ -53,6 +71,14 @@ export class PoolCalculator {
     );
   }
 
+  /**
+   * Converts amount deposited in the contract to amount received from the contract. Includes fee calculations.
+   *
+   * @param asset Asset to deposit in the contract.
+   * @param amountDeposited Amount to deposit in the contract.
+   *
+   * @returns The amount to receive from the contract.
+   */
   amountDepositedToNetAmountReceived(
     asset: Asset,
     amountDeposited: bigint,
@@ -66,6 +92,13 @@ export class PoolCalculator {
     return netAmountReceived;
   }
 
+  /**
+   * Converts amount received from the contract to amount deposited in the contract.
+   *
+   * @param asset Asset to deposit in the contract.
+   * @param netAmountReceived Amount to receive from the contract.
+   * @returns The amount to deposit in the contract.
+   */
   netAmountReceivedToAmountDeposited(
     asset: Asset,
     netAmountReceived: bigint,
@@ -75,11 +108,25 @@ export class PoolCalculator {
     return this.grossAmountReceivedToAmountDeposited(asset, netAmountReceived);
   }
 
+  /**
+   * Calculates the fee from the gross amount based on pool's feeBps.
+   *
+   * @param grossAmount The amount to receive from the contract not yet lessened by the fee.
+   *
+   * @returns The calculated fee.
+   */
   getFeeFromGrossAmount(grossAmount: bigint): bigint {
     const feeBps = BigInt(this.pool.feeBps);
     return grossAmount - (grossAmount * (10_000n - feeBps)) / 10_000n;
   }
 
+  /**
+   * Calculates the fee from the net amount based on pool's feeBps. This is used in the swap exact for calculations.
+   *
+   * @param netAmount The amount to receive from the contract already lessened by the fee.
+   *
+   * @returns The calculated fee.
+   */
   getFeeFromNetAmount(netAmount: bigint): bigint {
     // Using D because of "ceil()"
     const dNetAmount = new D(netAmount.toString());
@@ -124,6 +171,15 @@ export class PoolCalculator {
     return [A, B];
   }
 
+  /**
+   * Based on the deposited amount and a slippage, calculate the minimum amount the user will receive from the contract.
+   *
+   * @param asset The asset to deposit in the contract.
+   * @param amountDeposited The amount to deposit in the contract.
+   * @param slippagePct Slippage in percents.
+   *
+   * @returns The minimum amount to receive from the contract.
+   */
   getMinimumAmountReceived(
     asset: Asset,
     amountDeposited: bigint,
@@ -136,6 +192,14 @@ export class PoolCalculator {
     return amountReceived - (amountReceived * slippagePct) / 100n;
   }
 
+  /**
+   * Calculates the exchange fee based on deposited amount.
+   *
+   * @param asset The asset to deposit in the contract.
+   * @param amountDeposited The amount to deposit in the contract.
+   *
+   * @returns The calculated fee.
+   */
   getFee(asset: Asset, amountDeposited: bigint): bigint {
     return (
       this.amountDepositedToGrossAmountReceived(asset, amountDeposited) -
@@ -143,6 +207,15 @@ export class PoolCalculator {
     );
   }
 
+  /**
+   * Simulates new asset price after changing the pool's liquidity.
+   *
+   * @param asset The asset for which to calculate the price for.
+   * @param primaryLiqChange The change of primary liquidity on the pool.
+   * @param secondaryLiqChange The change of secondary liquidity on the pool.
+   *
+   * @returns New asset price.
+   */
   getAssetPriceAfterLiqChange(
     asset: Asset,
     primaryLiqChange: number,
@@ -162,6 +235,15 @@ export class PoolCalculator {
     return this.swapCalculator.getPrice(newSecondaryLiq, newPrimaryLiq);
   }
 
+  /**
+   * Calculates the price impact of changing the liquidity in a certain way.
+   *
+   * @param asset The asset for which to calculate the price impact for.
+   * @param primaryLiqChange The change of primary liquidity on the pool.
+   * @param secondaryLiqChange The change of secondary liquidity on the pool.
+   *
+   * @returns The asset price impact.
+   */
   getPriceImpactPct(
     asset: Asset,
     primaryLiqChange: number,
@@ -179,6 +261,14 @@ export class PoolCalculator {
     return (newPrice * 100) / oldPrice - 100;
   }
 
+  /**
+   * Calculates the price for which the asset in going to be swapped.
+   *
+   * @param assetDeposited The asset deposited in the contract.
+   * @param amountDeposited The amount deposited in the contract.
+   *
+   * @returns The price of deposited asset in relation to received asset.
+   */
   getSwapPrice(assetDeposited: Asset, amountDeposited: bigint): number {
     const assetReceived = this.pool.getOtherAsset(assetDeposited);
     const amountReceived = this.amountDepositedToGrossAmountReceived(
