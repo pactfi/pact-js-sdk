@@ -2,6 +2,17 @@ import { Asset } from "./asset";
 import { Pool } from "./pool";
 import { TransactionGroup } from "./transactionGroup";
 
+/**
+ * Swap Effect are the basic details of the effect on the pool of performing the swap.
+ *
+ * The swap effect contains the assets in and out for the swap including the minimum amount
+ * to deposit based on the slippage allowed, the fee incurred and the implied price from the in and
+ * out assets.
+ *
+ * It also includes the effect on the liquidity pool with the new primary and secondary asset amounts, and the
+ * percentage change this represents.
+ *
+ */
 export type SwapEffect = {
   amountReceived: number;
   amountDeposited: number;
@@ -14,11 +25,32 @@ export type SwapEffect = {
   price: number;
 };
 
+/**
+ * Swap class represents a swap trade if an amount of asset on a particular pool.
+ *
+ * The swap class contains methods to ensure the swap is valid and prepare the transaction. It also contains
+ * a method to report the effect of the swap on the current pool values.
+ */
 export class Swap {
+  /** The effect of the swap computed at the time of construction. */
   effect: SwapEffect;
 
+  /** The asset received from the contract. */
   assetReceived = this.pool.getOtherAsset(this.assetDeposited);
 
+  /**
+   * Creates a Swap Trade for a given amount of received asset based in the given liquidity pool.
+   *
+   * Note that as part of construction this function validates the inputs and will throw and error if
+   * the parameters are invalid. See validateSwap for details of the validation done.
+   * The constructor will also record the effect of the swap based on the current pool values.
+   *
+   * @param pool the pool the swap is going to be performed in.
+   * @param assetDeposited the asset that will be swapped (deposited in the contract).
+   * @param amount Either the amount to swap (deposit) or the amount to receive depending on the `isReversed` parameter.
+   * @param slippagePct the maximum amount of slippage allowed in performing the swap.
+   * @param isReversed If `true` then `amount` is what you want to receive from the swap. Otherwise, it's an amount that you want to swap (deposit). Note that the contracts do not support the "reversed" swap. It works by calculating the amount to deposit on the client side and doing a normal swap on the exchange.
+   */
   constructor(
     public pool: Pool,
     public assetDeposited: Asset,
@@ -30,6 +62,12 @@ export class Swap {
     this.effect = this.buildEffect();
   }
 
+  /**
+   * Creates the transactions needed to perform the swap trade and returns them as a transaction group ready to be signed and committed.
+   *
+   * @param address the account that will be performing the swap
+   * @returns A TransactionGroup that can perform the swap. There will be two transactions in the group.
+   */
   prepareTxGroup(address: string): Promise<TransactionGroup> {
     return this.pool.prepareSwapTxGroup({ swap: this, address });
   }
