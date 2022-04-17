@@ -35,28 +35,31 @@ const pact = new pactsdk.PactClient(algod);
 Optionally you can specify custom Pact API url. By default it directs to production API.
 
 ```js
-const pact = new pactsdk.PactClient(algod, {pactApiUrl: "https://api.testnet.pact.fi"});
+const pact = new pactsdk.PactClient(algod, {
+  pactApiUrl: "https://api.testnet.pact.fi",
+});
 ```
 
 Fetching pools by assets pair. It uses Pact API to retrieve the pool. Can return multiple pools with differing fee_bps.
 
 ```js
 const algo = await pact.fetchAsset(0);
-const otherCoin = await pact.fetchAsset(8949213);
+const otherCoin = await pact.fetchAsset(37074699);
 
-const pools = await pact.fetchPoolsByAssets(algo, otherCoin); // The pool will be fetched regardless of assets order.
+// The pool will be fetched regardless of assets order.
+const pools = await pact.fetchPoolsByAssets(algo, otherCoin);
 ```
 
 You can fetch a pool by providing assets ids instead of Asset objects.
 
 ```js
-const pools = await pact.fetchPoolsByAssets(0, 8949213)
+const pools = await pact.fetchPoolsByAssets(0, 37074699)
 ```
 
 You can also fetch a pool by providing app id. This way the pool is retrieved directly from the chain.
 
 ```js
-const pool = await pact.fetchPoolById(456321);
+const pool = await pact.fetchPoolById(85767720);
 ```
 
 You can list all pools from the Pact API.
@@ -65,14 +68,14 @@ You can list all pools from the Pact API.
 const pools = await pact.listPools();
 console.log(pools);
 // {
-//   "count":19,
-//   "next":"http://api.pact.fi/api/pools?page=2",
-//   "previous":null,
+//   "count": 19,
+//   "offset": 0,
+//   "limit": 10,
 //   "results": [...],
 // }
 
 // The listing uses pagination and filtering. Look at typings for details.
-const pools = await pact.listPools({page: 2, primary_asset__algoid: 9843123});
+const pools = await pact.listPools({offset: 20, primary_asset__algoid: 37074699});
 ```
 
 Before making the transactions you need to opt-in for the assets. There's no need to opt-in for algo.
@@ -167,6 +170,18 @@ const signedTxs = swapTxGroup.signTxn(account.sk)
 const tx = await algod.sendRawTransaction(signedTxs).do();
 await algosdk.waitForConfirmation(algod, tx.txId, 2);
 ```
+
+## Composability of transactions.
+
+The SDK has two sets of methods for creating transactions:
+
+1. `prepare...TxGroup` e.g. `pool.prepareSwapTxGroup`
+
+Those methods are convenience methods which ask algod for suggested transaction parameters, builds transactions and creates a transactions group. You can't add you own transactions to the group using those methods.
+
+2. `build...Txs` e.g. `pool.buildSwapTxs`
+
+Those methods return a list of transactions. You can extend that list with your own transactions and create a `TransactionGroup` manually from this list. See [composingTransactions](examples/composingTransactions.js) example for details.
 
 Look for more [examples](examples).
 
