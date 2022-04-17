@@ -2,6 +2,10 @@ import { Buffer } from "buffer";
 
 import { decode, decodeUint64Array } from "./encoding";
 
+/**
+ * The one to one representation of pool's global state.
+ * The optional properties are used only by stableswaps and should not be relevant to the users.
+ */
 export type AppInternalState = {
   L: number;
   A: number;
@@ -25,6 +29,9 @@ export type AppInternalState = {
   SECONDARY_FEES?: number;
 };
 
+/**
+ * A user friendly representation of pool's global state.
+ */
 export type PoolState = {
   totalLiquidity: number;
   totalPrimary: number;
@@ -33,6 +40,10 @@ export type PoolState = {
   secondaryAssetPrice: number;
 };
 
+/**
+ *
+ * @param rawState The contract's global state retrieved from algosdk.
+ */
 export function parseGlobalPoolState(rawState: any[]): AppInternalState {
   const state = parseState(rawState);
 
@@ -43,6 +54,15 @@ export function parseGlobalPoolState(rawState: any[]): AppInternalState {
   return { ASSET_A, ASSET_B, FEE_BPS, ...state };
 }
 
+/**
+ * Utility function for converting the Algorand key-value schema into a standard python dictionary.
+ *
+ * Algorand store keys in base64 encoding and store values as either bytes or unsigned integers depending
+ * on the type. This function decodes this information into a more human friendly structure.
+ *
+ * @param kv Algorand key-value data structure to parse.
+ * @returns key value dictionary parsed from the argument
+ */
 export function parseState(kv: any) {
   // Transform algorand key-value schema.
   const res: any = {};
