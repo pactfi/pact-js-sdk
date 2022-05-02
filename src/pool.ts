@@ -8,7 +8,6 @@ import { PoolCalculator } from "./poolCalculator";
 import { AppInternalState, PoolState, parseGlobalPoolState } from "./poolState";
 import { Swap } from "./swap";
 import { TransactionGroup } from "./transactionGroup";
-import { OperationType } from "./types";
 
 export type AddLiquidityOptions = {
   address: string;
@@ -26,6 +25,7 @@ export type SwapOptions = {
   asset: Asset;
   amount: number;
   slippagePct: number;
+  reverse?: boolean;
 };
 
 export type SwapTxOptions = {
@@ -86,6 +86,10 @@ export type ApiAsset = {
   volume_24h: string;
 };
 
+export type PoolType = "CONSTANT_PRODUCT" | "STABLESWAP";
+
+type OperationType = "SWAP" | "ADDLIQ" | "REMLIQ";
+
 type MakeNoopTxOptions = {
   address: string;
   suggestedParams: algosdk.SuggestedParams;
@@ -136,7 +140,6 @@ export async function fetchPoolById(algod: algosdk.Algodv2, appId: number) {
     primaryAsset,
     secondaryAsset,
     liquidityAsset,
-    appState.FEE_BPS,
     appState,
   );
 }
@@ -180,10 +183,29 @@ export async function getAppIdsFromAssets(
   return data.results.map((pool) => parseInt(pool.appid));
 }
 
-export class Pool {
-  calculator = new PoolCalculator(this);
+export type ConstantProductPoolParams = {
+  feeBps: number;
+};
 
-  state = this.parseInternalState(this.internalState);
+export type StableswapPoolParams = {
+  feeBps: number;
+  pactFeeBps: number;
+  initialA: number;
+  initialATime: number;
+  futureA: number;
+  futureATime: number;
+};
+
+export class Pool {
+  calculator: PoolCalculator;
+
+  state: PoolState;
+
+  poolType: PoolType;
+
+  params: ConstantProductPoolParams | StableswapPoolParams;
+
+  feeBps: number;
 
   constructor(
     protected algod: algosdk.Algodv2,
@@ -191,9 +213,28 @@ export class Pool {
     public primaryAsset: Asset,
     public secondaryAsset: Asset,
     public liquidityAsset: Asset,
-    public feeBps: number,
     public internalState: AppInternalState,
-  ) {}
+  ) {
+    if (internalState.INITIAL_A !== undefined) {
+      this.poolType = "STABLESWAP";
+      this.params = {
+        feeBps: internalState.FEE_BPS,
+        pactFeeBps: internalState.PACT_FEE_BPS,
+        initialA: internalState.INITIAL_A,
+        initialATime: internalState.INITIAL_A_TIME,
+        futureA: internalState.FUTURE_A,
+        futureATime: internalState.FUTURE_A_TIME,
+      };
+    } else {
+      this.poolType = "CONSTANT_PRODUCT";
+      this.params = {
+        feeBps: internalState.FEE_BPS,
+      };
+    }
+    this.feeBps = internalState.FEE_BPS + (internalState.PACT_FEE_BPS ?? 0);
+    this.calculator = new PoolCalculator(this);
+    this.state = this.parseInternalState(this.internalState);
+  }
 
   getEscrowAddress() {
     return algosdk.getApplicationAddress(this.appId);
@@ -268,7 +309,7 @@ export class Pool {
     const tx3 = this.makeApplicationNoopTx({
       address: options.address,
       suggestedParams: options.suggestedParams,
-      fee: 3000,
+      fee: this.poolType === "CONSTANT_PRODUCT" ? 3000 : 10_000,
       args: ["ADDLIQ", 0],
       extraAsset: this.liquidityAsset,
       note: options.note,
@@ -295,7 +336,7 @@ export class Pool {
     const txn2 = this.makeApplicationNoopTx({
       address: options.address,
       suggestedParams: options.suggestedParams,
-      fee: 3000,
+      fee: this.poolType === "CONSTANT_PRODUCT" ? 3000 : 10_000,
       args: ["REMLIQ", 0, 0], // min expected primary, min expected secondary
     });
 
@@ -306,7 +347,13 @@ export class Pool {
     if (!this.isAssetInThePool(options.asset)) {
       throw `Asset ${options.asset.index} not in the pool`;
     }
-    return new Swap(this, options.asset, options.amount, options.slippagePct);
+    return new Swap(
+      this,
+      options.asset,
+      options.amount,
+      options.slippagePct,
+      !!options.reverse,
+    );
   }
 
   isAssetInThePool(asset: Asset) {
@@ -328,14 +375,14 @@ export class Pool {
   }: SwapTxOptions & SuggestedParamsOption) {
     const txn1 = this.makeDepositTx({
       address,
-      amount: swap.amountOut,
+      amount: swap.effect.amountOut,
       asset: swap.assetOut,
       suggestedParams,
     });
     const txn2 = this.makeApplicationNoopTx({
       address,
       suggestedParams,
-      fee: 2000,
+      fee: this.poolType === "CONSTANT_PRODUCT" ? 2000 : 8000,
       args: ["SWAP", swap.effect.minimumAmountIn],
     });
 
@@ -388,8 +435,8 @@ export class Pool {
       totalLiquidity: state.L,
       totalPrimary: state.A,
       totalSecondary: state.B,
-      primaryAssetPrice: this.calculator.primaryAssetPrice.toNumber(),
-      secondaryAssetPrice: this.calculator.secondaryAssetPrice.toNumber(),
+      primaryAssetPrice: this.calculator.primaryAssetPrice,
+      secondaryAssetPrice: this.calculator.secondaryAssetPrice,
     };
   }
 }
