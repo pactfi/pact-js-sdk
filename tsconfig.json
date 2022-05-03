@@ -13,5 +13,10 @@
     "esModuleInterop": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist/**", "rollup.config.js"]
+  "exclude": ["node_modules", "dist/**", "rollup.config.js"],
+  "typedocOptions": {
+    "entryPoints": ["src/index.ts"],
+    "plugin": ["./typedoc.katex.js"],
+    "out": "docs"
+  }
 }
