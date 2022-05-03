@@ -2,6 +2,10 @@ import { Buffer } from "buffer";
 
 import { decode, decodeUint64Array } from "./encoding";
 
+/**
+ * The internal state of the liquidity pool application. 
+ * Includes the asset id, amount of each asset and the fee in bps.
+ */
 export type AppInternalState = {
   L: number;
   A: number;
@@ -12,6 +16,9 @@ export type AppInternalState = {
   FEE_BPS: number;
 };
 
+/**
+ * Simple data structure with the pools current state. 
+ */
 export type PoolState = {
   totalLiquidity: number;
   totalPrimary: number;
@@ -30,6 +37,15 @@ export function parseGlobalPoolState(rawState: any[]): AppInternalState {
   return { ASSET_A, ASSET_B, FEE_BPS, ...state };
 }
 
+/**
+ * Utility function for converting the algrand key-value schema into a standard python dictionary. 
+ * 
+ * Algorand store keys in base 64 encoding and store values as either bytes or unsigned integers depending 
+ * on the type. This function decodes this information into a python dictionary that is easier to handle.
+ * 
+ * @param kv Algorand key-value data structure to parse.
+ * @returns key value dictionary parsed from the argument
+ */
 export function parseState(kv: any) {
   // Transform algorand key-value schema.
   const res: any = {};
