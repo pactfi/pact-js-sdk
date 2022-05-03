@@ -65,11 +65,11 @@ export class Asset {
   /**
    * The name of the Asset if there is one. This may be empty.
    */
-  public name?= "";
+  public name? = "";
   /**
    * The name of a unit of the asset if there is one. This may be empty.
    */
-  public unitName?= "";
+  public unitName? = "";
 
   /**
    * The number of decimal places that the Asset supports.
@@ -92,7 +92,7 @@ export class Asset {
    * @param algod the Algorand sdk client to use for extracting asset details.
    * @param index the index number of the asset.
    */
-  constructor(protected algod: algosdk.Algodv2, public index: number) { }
+  constructor(protected algod: algosdk.Algodv2, public index: number) {}
 
   /**
    * This creates a transaction that will allow the account to "opt in" to the asset.
