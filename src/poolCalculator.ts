@@ -3,6 +3,12 @@ import D from "decimal.js";
 import { Asset } from "./asset";
 import { Pool } from "./pool";
 
+/**
+ * Pool calculator contains functions for calculation statistics and other numerical data about the pool.
+ *
+ * The pool calculator uses internal data from the pool to calculate values like the Prices, Net Amounts
+ * and values for the swap.
+ */
 export class PoolCalculator {
   constructor(private pool: Pool) {}
 
@@ -14,12 +20,25 @@ export class PoolCalculator {
     return new D(this.pool.internalState.B as number);
   }
 
+  /**
+   * Checks if the pool is currently empty.
+   *
+   * A pool is empty if either the primary or secondary asset is zero.
+   *
+   * @returns true if the pool is empty, false otherwise.
+   */
   get isEmpty() {
     return (
       this.primaryAssetAmount.isZero() || this.secondaryAssetAmount.isZero()
     );
   }
 
+  /**
+   * Returns the number of secondary assets for a single primary asset.
+   *
+   * If the pool is currently zero then it returns zero, other wise it returns
+   * $$ price = (Liq_s/R_s) /  ( Liq_s/R_s) $$
+   */
   get primaryAssetPrice() {
     if (this.isEmpty) {
       return new D(0);
