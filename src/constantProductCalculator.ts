@@ -13,19 +13,27 @@ export class ConstantProductCalculator implements SwapCalculator {
     return decimalLiqB / decimalLiqA;
   }
 
-  getSwapGrossAmountIn(liqA: bigint, liqB: bigint, amountOut: bigint): bigint {
-    return (liqB * amountOut) / (liqA + amountOut);
+  getSwapGrossAmountReceived(
+    liqA: bigint,
+    liqB: bigint,
+    amountDeposited: bigint,
+  ): bigint {
+    return (liqB * amountDeposited) / (liqA + amountDeposited);
   }
 
-  getSwapAmountOut(liqA: bigint, liqB: bigint, grossAmountIn: bigint): bigint {
+  getSwapAmountDeposited(
+    liqA: bigint,
+    liqB: bigint,
+    grossAmountReceived: bigint,
+  ): bigint {
     // Using D to because of "ceil()"
     const dLiqA = new D(liqA.toString());
     const dLiqB = new D(liqB.toString());
-    const dGrossAmountIn = new D(grossAmountIn.toString());
+    const dGrossAmountReceived = new D(grossAmountReceived.toString());
     return BigInt(
       dLiqA
-        .mul(dGrossAmountIn)
-        .div(dLiqB.sub(dGrossAmountIn))
+        .mul(dGrossAmountReceived)
+        .div(dLiqB.sub(dGrossAmountReceived))
         .ceil()
         .toNumber(),
     );

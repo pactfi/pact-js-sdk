@@ -50,25 +50,45 @@ export class StableswapCalculator implements SwapCalculator {
     const nLiqB = decimalLiqB * ratio;
     const liqA = BigInt(nLiqA);
     const liqB = BigInt(Math.round(nLiqB));
-    const amountOut = BigInt(
+    const amountDeposited = BigInt(
       // The division helps minimize price impact of simulated swap.
       Math.round(Math.min(ratio, nLiqA / 100, nLiqB / 100)),
     );
-    const amountIn = this.getSwapGrossAmountIn(liqA, liqB, amountOut);
-    return Number(amountOut) / Number(amountIn);
+    const amountReceived = this.getSwapGrossAmountReceived(
+      liqA,
+      liqB,
+      amountDeposited,
+    );
+    return Number(amountDeposited) / Number(amountReceived);
   }
 
-  getSwapGrossAmountIn(liqA: bigint, liqB: bigint, amountOut: bigint): bigint {
+  getSwapGrossAmountReceived(
+    liqA: bigint,
+    liqB: bigint,
+    amountDeposited: bigint,
+  ): bigint {
     const amplifier = this.getAmplifier();
     const invariant = this.getInvariant(liqA, liqB, amplifier);
-    const newLiqB = this.getNewLiq(liqA + amountOut, amplifier, invariant);
+    const newLiqB = this.getNewLiq(
+      liqA + amountDeposited,
+      amplifier,
+      invariant,
+    );
     return liqB - newLiqB;
   }
 
-  getSwapAmountOut(liqA: bigint, liqB: bigint, grossAmountIn: bigint): bigint {
+  getSwapAmountDeposited(
+    liqA: bigint,
+    liqB: bigint,
+    grossAmountReceived: bigint,
+  ): bigint {
     const amplifier = this.getAmplifier();
     const invariant = this.getInvariant(liqA, liqB, amplifier);
-    const newLiqA = this.getNewLiq(liqB - grossAmountIn, amplifier, invariant);
+    const newLiqA = this.getNewLiq(
+      liqB - grossAmountReceived,
+      amplifier,
+      invariant,
+    );
     return newLiqA - liqA;
   }
 

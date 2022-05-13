@@ -150,9 +150,9 @@ const swap = pool.prepareSwap({
 // You can inspect swap effect before submitting the transaction.
 console.log(swap.effect);
 // {
-//   amountOut: 200000,
-//   amountIn: 146529,
-//   minimumAmountIn: 143598,
+//   amountDeposited: 200000,
+//   amountReceived: 146529,
+//   minimumAmountReceived: 143598,
 //   price: 0.73485,
 //   primaryAssetPriceAfterSwap: 0.6081680080300244,
 //   secondaryAssetPriceAfterSwap: 1.6442824791774173,

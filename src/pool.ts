@@ -375,15 +375,15 @@ export class Pool {
   }: SwapTxOptions & SuggestedParamsOption) {
     const txn1 = this.makeDepositTx({
       address,
-      amount: swap.effect.amountOut,
-      asset: swap.assetOut,
+      amount: swap.effect.amountDeposited,
+      asset: swap.assetDeposited,
       suggestedParams,
     });
     const txn2 = this.makeApplicationNoopTx({
       address,
       suggestedParams,
       fee: this.poolType === "CONSTANT_PRODUCT" ? 2000 : 8000,
-      args: ["SWAP", swap.effect.minimumAmountIn],
+      args: ["SWAP", swap.effect.minimumAmountReceived],
     });
 
     return [txn1, txn2];

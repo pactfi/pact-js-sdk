@@ -53,17 +53,26 @@ export class PoolCalculator {
     );
   }
 
-  amountOutToNetAmountIn(asset: Asset, amountOut: bigint): bigint {
-    const grossAmountIn = this.amountOutToGrossAmountIn(asset, amountOut);
-    const fee = this.getFeeFromGrossAmount(grossAmountIn);
-    const netAmountIn = grossAmountIn - fee;
-    return netAmountIn;
+  amountDepositedToNetAmountReceived(
+    asset: Asset,
+    amountDeposited: bigint,
+  ): bigint {
+    const grossAmountReceived = this.amountDepositedToGrossAmountReceived(
+      asset,
+      amountDeposited,
+    );
+    const fee = this.getFeeFromGrossAmount(grossAmountReceived);
+    const netAmountReceived = grossAmountReceived - fee;
+    return netAmountReceived;
   }
 
-  netAmountInToAmountOut(asset: Asset, netAmountIn: bigint): bigint {
-    const fee = this.getFeeFromNetAmount(netAmountIn);
-    netAmountIn = netAmountIn + fee;
-    return this.grossAmountInToAmountOut(asset, netAmountIn);
+  netAmountReceivedToAmountDeposited(
+    asset: Asset,
+    netAmountReceived: bigint,
+  ): bigint {
+    const fee = this.getFeeFromNetAmount(netAmountReceived);
+    netAmountReceived = netAmountReceived + fee;
+    return this.grossAmountReceivedToAmountDeposited(asset, netAmountReceived);
   }
 
   getFeeFromGrossAmount(grossAmount: bigint): bigint {
@@ -83,17 +92,28 @@ export class PoolCalculator {
     );
   }
 
-  private grossAmountInToAmountOut(
+  private grossAmountReceivedToAmountDeposited(
     asset: Asset,
-    intGrossAmountIn: bigint,
+    intGrossAmountReceived: bigint,
   ): bigint {
     const [A, B] = this.getLiquidities(asset);
-    return this.swapCalculator.getSwapAmountOut(A, B, intGrossAmountIn);
+    return this.swapCalculator.getSwapAmountDeposited(
+      A,
+      B,
+      intGrossAmountReceived,
+    );
   }
 
-  private amountOutToGrossAmountIn(asset: Asset, amountOut: bigint): bigint {
+  private amountDepositedToGrossAmountReceived(
+    asset: Asset,
+    amountDeposited: bigint,
+  ): bigint {
     const [A, B] = this.getLiquidities(asset);
-    return this.swapCalculator.getSwapGrossAmountIn(A, B, amountOut);
+    return this.swapCalculator.getSwapGrossAmountReceived(
+      A,
+      B,
+      amountDeposited,
+    );
   }
 
   private getLiquidities(asset: Asset): [bigint, bigint] {
@@ -104,19 +124,22 @@ export class PoolCalculator {
     return [A, B];
   }
 
-  getMinimumAmountIn(
+  getMinimumAmountReceived(
     asset: Asset,
-    amountOut: bigint,
+    amountDeposited: bigint,
     slippagePct: bigint,
   ): bigint {
-    const amountIn = this.amountOutToNetAmountIn(asset, amountOut);
-    return amountIn - (amountIn * slippagePct) / 100n;
+    const amountReceived = this.amountDepositedToNetAmountReceived(
+      asset,
+      amountDeposited,
+    );
+    return amountReceived - (amountReceived * slippagePct) / 100n;
   }
 
-  getFee(asset: Asset, amountOut: bigint): bigint {
+  getFee(asset: Asset, amountDeposited: bigint): bigint {
     return (
-      this.amountOutToGrossAmountIn(asset, amountOut) -
-      this.amountOutToNetAmountIn(asset, amountOut)
+      this.amountDepositedToGrossAmountReceived(asset, amountDeposited) -
+      this.amountDepositedToNetAmountReceived(asset, amountDeposited)
     );
   }
 
@@ -156,10 +179,13 @@ export class PoolCalculator {
     return (newPrice * 100) / oldPrice - 100;
   }
 
-  getSwapPrice(assetOut: Asset, amountOut: bigint): number {
-    const assetIn = this.pool.getOtherAsset(assetOut);
-    const amountIn = this.amountOutToGrossAmountIn(assetOut, amountOut);
-    const diff_ratio = assetOut.ratio / assetIn.ratio;
-    return (Number(amountIn) / Number(amountOut)) * diff_ratio;
+  getSwapPrice(assetDeposited: Asset, amountDeposited: bigint): number {
+    const assetReceived = this.pool.getOtherAsset(assetDeposited);
+    const amountReceived = this.amountDepositedToGrossAmountReceived(
+      assetDeposited,
+      amountDeposited,
+    );
+    const diff_ratio = assetDeposited.ratio / assetReceived.ratio;
+    return (Number(amountReceived) / Number(amountDeposited)) * diff_ratio;
   }
 }

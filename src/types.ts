@@ -6,6 +6,14 @@ export interface SwapCalculator {
   // For the following two methods:
   // liqA - primary liquidity if swapping primary asset, secondary otherwise
   // liqB - vice versa
-  getSwapGrossAmountIn(liqA: bigint, liqB: bigint, amountOut: bigint): bigint;
-  getSwapAmountOut(liqA: bigint, liqB: bigint, amountIn: bigint): bigint;
+  getSwapGrossAmountReceived(
+    liqA: bigint,
+    liqB: bigint,
+    amountDeposited: bigint,
+  ): bigint;
+  getSwapAmountDeposited(
+    liqA: bigint,
+    liqB: bigint,
+    amountReceived: bigint,
+  ): bigint;
 }

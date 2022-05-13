@@ -3,9 +3,9 @@ import { Pool } from "./pool";
 import { TransactionGroup } from "./transactionGroup";
 
 export type SwapEffect = {
-  amountIn: number;
-  amountOut: number;
-  minimumAmountIn: number;
+  amountReceived: number;
+  amountDeposited: number;
+  minimumAmountReceived: number;
   primaryAssetPriceAfterSwap: number;
   secondaryAssetPriceAfterSwap: number;
   primaryAssetPriceImpactPct: number;
@@ -17,11 +17,11 @@ export type SwapEffect = {
 export class Swap {
   effect: SwapEffect;
 
-  assetIn = this.pool.getOtherAsset(this.assetOut);
+  assetReceived = this.pool.getOtherAsset(this.assetDeposited);
 
   constructor(
     public pool: Pool,
-    public assetOut: Asset,
+    public assetDeposited: Asset,
     public amount: number,
     public slippagePct: number,
     public isReversed = false,
@@ -46,27 +46,33 @@ export class Swap {
   private buildEffect(): SwapEffect {
     const calc = this.pool.calculator;
 
-    let amountIn: number;
-    let amountOut: number;
+    let amountReceived: number;
+    let amountDeposited: number;
     if (this.isReversed) {
-      amountIn = this.amount;
-      amountOut = Number(
-        calc.netAmountInToAmountOut(this.assetOut, BigInt(this.amount)),
+      amountReceived = this.amount;
+      amountDeposited = Number(
+        calc.netAmountReceivedToAmountDeposited(
+          this.assetDeposited,
+          BigInt(this.amount),
+        ),
       );
     } else {
-      amountIn = Number(
-        calc.amountOutToNetAmountIn(this.assetOut, BigInt(this.amount)),
+      amountReceived = Number(
+        calc.amountDepositedToNetAmountReceived(
+          this.assetDeposited,
+          BigInt(this.amount),
+        ),
       );
-      amountOut = this.amount;
+      amountDeposited = this.amount;
     }
 
     let primaryLiqChange, secondaryLiqChange: number;
-    if (this.assetOut.index === this.pool.primaryAsset.index) {
-      primaryLiqChange = amountOut;
-      secondaryLiqChange = -amountIn;
+    if (this.assetDeposited.index === this.pool.primaryAsset.index) {
+      primaryLiqChange = amountDeposited;
+      secondaryLiqChange = -amountReceived;
     } else {
-      primaryLiqChange = -amountIn;
-      secondaryLiqChange = amountOut;
+      primaryLiqChange = -amountReceived;
+      secondaryLiqChange = amountDeposited;
     }
 
     const primaryAssetPriceAfterSwap = calc.getAssetPriceAfterLiqChange(
@@ -81,16 +87,16 @@ export class Swap {
     );
 
     return {
-      amountOut,
-      amountIn,
-      minimumAmountIn: Number(
-        calc.getMinimumAmountIn(
-          this.assetOut,
-          BigInt(amountOut),
+      amountDeposited,
+      amountReceived,
+      minimumAmountReceived: Number(
+        calc.getMinimumAmountReceived(
+          this.assetDeposited,
+          BigInt(amountDeposited),
           BigInt(this.slippagePct),
         ),
       ),
-      price: calc.getSwapPrice(this.assetOut, BigInt(amountOut)),
+      price: calc.getSwapPrice(this.assetDeposited, BigInt(amountDeposited)),
       primaryAssetPriceAfterSwap,
       secondaryAssetPriceAfterSwap,
       primaryAssetPriceImpactPct: calc.getPriceImpactPct(
@@ -103,7 +109,7 @@ export class Swap {
         primaryLiqChange,
         secondaryLiqChange,
       ),
-      fee: Number(calc.getFee(this.assetOut, BigInt(amountOut))),
+      fee: Number(calc.getFee(this.assetDeposited, BigInt(amountDeposited))),
     };
   }
 }
