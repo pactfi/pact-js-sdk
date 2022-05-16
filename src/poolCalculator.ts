@@ -71,13 +71,13 @@ export class PoolCalculator {
     netAmountReceived: bigint,
   ): bigint {
     const fee = this.getFeeFromNetAmount(netAmountReceived);
-    netAmountReceived = netAmountReceived + fee;
+    netAmountReceived += fee;
     return this.grossAmountReceivedToAmountDeposited(asset, netAmountReceived);
   }
 
   getFeeFromGrossAmount(grossAmount: bigint): bigint {
     const feeBps = BigInt(this.pool.feeBps);
-    return grossAmount - (grossAmount * (10000n - feeBps)) / 10000n;
+    return grossAmount - (grossAmount * (10_000n - feeBps)) / 10_000n;
   }
 
   getFeeFromNetAmount(netAmount: bigint): bigint {
@@ -85,7 +85,7 @@ export class PoolCalculator {
     const dNetAmount = new D(netAmount.toString());
     return BigInt(
       dNetAmount
-        .div((10000 - this.pool.feeBps) / 10000)
+        .div((10_000 - this.pool.feeBps) / 10_000)
         .sub(dNetAmount)
         .ceil()
         .toNumber(),

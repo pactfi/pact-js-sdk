@@ -24,7 +24,7 @@ jest.mock("./crossFetch", () => {
   };
 });
 
-describe("Pool", () => {
+describe("Generic pool", () => {
   let testBed: TestBed;
 
   beforeAll(async () => {
@@ -215,282 +215,286 @@ describe("Pool", () => {
   });
 });
 
-it("Constant product pool e2e scenario", async () => {
-  const { account, algo, coin, pool } = await makeFreshTestBed({
-    poolType: "CONSTANT_PRODUCT",
+describe("Constant product pool", () => {
+  it("e2e scenario", async () => {
+    const { account, algo, coin, pool } = await makeFreshTestBed({
+      poolType: "CONSTANT_PRODUCT",
+    });
+
+    expect(pool.state).toEqual({
+      totalLiquidity: 0,
+      totalPrimary: 0,
+      totalSecondary: 0,
+      primaryAssetPrice: 0,
+      secondaryAssetPrice: 0,
+    });
+
+    // Opt in for liquidity asset.
+    const liqOptInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
+    await signAndSend(liqOptInTx, account);
+
+    // Add liquidity.
+    const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
+      address: account.addr,
+      primaryAssetAmount: 100_000,
+      secondaryAssetAmount: 100_000,
+    });
+    expect(addLiqTxGroup.transactions.length).toBe(3);
+    await signAndSend(addLiqTxGroup, account);
+    await pool.updateState();
+    expect(pool.state).toEqual({
+      totalLiquidity: 100_000,
+      totalPrimary: 100_000,
+      totalSecondary: 100_000,
+      primaryAssetPrice: 1,
+      secondaryAssetPrice: 1,
+    });
+
+    // Remove liquidity.
+    const removeLiqTxGroup = await pool.prepareRemoveLiquidityTxGroup({
+      address: account.addr,
+      amount: 10_000,
+    });
+    expect(removeLiqTxGroup.transactions.length).toBe(2);
+    await signAndSend(removeLiqTxGroup, account);
+    await pool.updateState();
+    expect(pool.state).toEqual({
+      totalLiquidity: 90_000,
+      totalPrimary: 90_000,
+      totalSecondary: 90_000,
+      primaryAssetPrice: 1,
+      secondaryAssetPrice: 1,
+    });
+
+    // Swap algo.
+    const algoSwap = await pool.prepareSwap({
+      asset: algo,
+      amount: 20_000,
+      slippagePct: 2,
+    });
+    const algoSwapTxGroup = await algoSwap.prepareTxGroup(account.addr);
+    expect(algoSwapTxGroup.transactions.length).toBe(2);
+    await signAndSend(algoSwapTxGroup, account);
+    await pool.updateState();
+    expect(pool.state.totalLiquidity).toBe(90_000);
+    expect(pool.state.totalPrimary > 100_000).toBe(true);
+    expect(pool.state.totalSecondary < 100_000).toBe(true);
+    expect(pool.state.primaryAssetPrice < 1).toBe(true);
+    expect(pool.state.secondaryAssetPrice > 1).toBe(true);
+
+    // Swap secondary.
+    const coinSwap = await pool.prepareSwap({
+      asset: coin,
+      amount: 50_000,
+      slippagePct: 2,
+    });
+    const coinSwapTxGroup = await coinSwap.prepareTxGroup(account.addr);
+    await signAndSend(coinSwapTxGroup, account);
+    await pool.updateState();
+    expect(pool.state.totalLiquidity).toBe(90_000);
+    expect(pool.state.totalPrimary < 100_000).toBe(true);
+    expect(pool.state.totalSecondary > 100_000).toBe(true);
+    expect(pool.state.primaryAssetPrice > 1).toBe(true);
+    expect(pool.state.secondaryAssetPrice < 1).toBe(true);
   });
 
-  expect(pool.state).toEqual({
-    totalLiquidity: 0,
-    totalPrimary: 0,
-    totalSecondary: 0,
-    primaryAssetPrice: 0,
-    secondaryAssetPrice: 0,
-  });
+  it("Pool e2e scenario for asset with 19 decimals", async () => {
+    const { account, algo, pact } = await makeFreshTestBed();
 
-  // Opt in for liquidity asset.
-  const liqOptInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
-  await signAndSend(liqOptInTx, account);
+    const coinBIndex = await createAsset(account, "coinA", 19, 10 ** 19);
 
-  // Add liquidity.
-  const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
-    address: account.addr,
-    primaryAssetAmount: 100_000,
-    secondaryAssetAmount: 100_000,
-  });
-  expect(addLiqTxGroup.transactions.length).toBe(3);
-  await signAndSend(addLiqTxGroup, account);
-  await pool.updateState();
-  expect(pool.state).toEqual({
-    totalLiquidity: 100_000,
-    totalPrimary: 100_000,
-    totalSecondary: 100_000,
-    primaryAssetPrice: 1,
-    secondaryAssetPrice: 1,
-  });
+    const appId = await deployExchangeContract(account, algo.index, coinBIndex);
+    const pool = await pact.fetchPoolById(appId);
 
-  // Remove liquidity.
-  const removeLiqTxGroup = await pool.prepareRemoveLiquidityTxGroup({
-    address: account.addr,
-    amount: 10_000,
-  });
-  expect(removeLiqTxGroup.transactions.length).toBe(2);
-  await signAndSend(removeLiqTxGroup, account);
-  await pool.updateState();
-  expect(pool.state).toEqual({
-    totalLiquidity: 90_000,
-    totalPrimary: 90_000,
-    totalSecondary: 90_000,
-    primaryAssetPrice: 1,
-    secondaryAssetPrice: 1,
-  });
+    expect(pool.calculator.isEmpty).toBe(true);
+    expect(pool.secondaryAsset.decimals).toBe(19);
 
-  // Swap algo.
-  const algoSwap = await pool.prepareSwap({
-    asset: algo,
-    amount: 20_000,
-    slippagePct: 2,
-  });
-  const algoSwapTxGroup = await algoSwap.prepareTxGroup(account.addr);
-  expect(algoSwapTxGroup.transactions.length).toBe(2);
-  await signAndSend(algoSwapTxGroup, account);
-  await pool.updateState();
-  expect(pool.state.totalLiquidity).toBe(90_000);
-  expect(pool.state.totalPrimary > 100_000).toBe(true);
-  expect(pool.state.totalSecondary < 100_000).toBe(true);
-  expect(pool.state.primaryAssetPrice < 1).toBe(true);
-  expect(pool.state.secondaryAssetPrice > 1).toBe(true);
+    expect(pool.state).toEqual({
+      totalLiquidity: 0,
+      totalPrimary: 0,
+      totalSecondary: 0,
+      primaryAssetPrice: 0,
+      secondaryAssetPrice: 0,
+    });
 
-  // Swap secondary.
-  const coinSwap = await pool.prepareSwap({
-    asset: coin,
-    amount: 50_000,
-    slippagePct: 2,
+    // Opt in for liquidity asset.
+    const liqOptInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
+    await signAndSend(liqOptInTx, account);
+
+    // Add liquidity.
+    const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
+      address: account.addr,
+      primaryAssetAmount: 100_000,
+      secondaryAssetAmount: 10 ** 18,
+    });
+    expect(addLiqTxGroup.transactions.length).toBe(6);
+    await signAndSend(addLiqTxGroup, account);
+    await pool.updateState();
+    expect(pool.state.totalSecondary).toBe(10 ** 18);
+    let lastState = pool.state;
+
+    // Swap algo.
+    const algoSwap = await pool.prepareSwap({
+      asset: algo,
+      amount: 20_000,
+      slippagePct: 2,
+    });
+    const algoSwapTxGroup = await algoSwap.prepareTxGroup(account.addr);
+    expect(algoSwapTxGroup.transactions.length).toBe(2);
+    await signAndSend(algoSwapTxGroup, account);
+    await pool.updateState();
+    expect(pool.state.totalPrimary).toBeGreaterThan(lastState.totalPrimary);
+    expect(pool.state.totalSecondary).toBeLessThan(lastState.totalSecondary);
+    expect(pool.state.totalLiquidity).toBe(lastState.totalLiquidity);
+    lastState = pool.state;
+
+    // Swap secondary.
+    const coinSwap = await pool.prepareSwap({
+      asset: pool.secondaryAsset,
+      amount: 10 ** 18,
+      slippagePct: 2,
+    });
+    const coinSwapTxGroup = await coinSwap.prepareTxGroup(account.addr);
+    await signAndSend(coinSwapTxGroup, account);
+    await pool.updateState();
+    expect(pool.state.totalPrimary).toBeLessThan(lastState.totalPrimary);
+    expect(pool.state.totalSecondary).toBeGreaterThan(lastState.totalSecondary);
+    expect(pool.state.totalLiquidity).toBe(lastState.totalLiquidity);
+
+    // Remove liquidity.
+    const removeLiqTxGroup = await pool.prepareRemoveLiquidityTxGroup({
+      address: account.addr,
+      amount: pool.state.totalLiquidity - 1000,
+    });
+    expect(removeLiqTxGroup.transactions.length).toBe(2);
+    await signAndSend(removeLiqTxGroup, account);
+    await pool.updateState();
+    expect(pool.state.totalLiquidity).toBe(1000);
   });
-  const coinSwapTxGroup = await coinSwap.prepareTxGroup(account.addr);
-  await signAndSend(coinSwapTxGroup, account);
-  await pool.updateState();
-  expect(pool.state.totalLiquidity).toBe(90_000);
-  expect(pool.state.totalPrimary < 100_000).toBe(true);
-  expect(pool.state.totalSecondary > 100_000).toBe(true);
-  expect(pool.state.primaryAssetPrice > 1).toBe(true);
-  expect(pool.state.secondaryAssetPrice < 1).toBe(true);
 });
 
-it("Pool e2e scenario for asset with 19 decimals", async () => {
-  const { account, algo, pact } = await makeFreshTestBed();
+describe("Stableswap pool", () => {
+  it("e2e scenario", async () => {
+    const account = await newAccount();
+    const pact = new PactClient(algod);
 
-  const coinBIndex = await createAsset(account, "coinA", 19, 10 ** 19);
+    const coinAIndex = await createAsset(account, "COIN_A", 6, 10 ** 10);
+    const coinBIndex = await createAsset(account, "COIN_B", 6, 10 ** 10);
 
-  const appId = await deployExchangeContract(account, algo.index, coinBIndex);
-  const pool = await pact.fetchPoolById(appId);
+    const coinA = await pact.fetchAsset(coinAIndex);
+    const coinB = await pact.fetchAsset(coinBIndex);
 
-  expect(pool.calculator.isEmpty).toBe(true);
-  expect(pool.secondaryAsset.decimals).toBe(19);
+    const appId = await deployStableswapContract(
+      account,
+      coinAIndex,
+      coinBIndex,
+      { amplifier: 20 },
+    );
+    const pool = await pact.fetchPoolById(appId);
 
-  expect(pool.state).toEqual({
-    totalLiquidity: 0,
-    totalPrimary: 0,
-    totalSecondary: 0,
-    primaryAssetPrice: 0,
-    secondaryAssetPrice: 0,
+    expect(pool.state).toEqual({
+      totalLiquidity: 0,
+      totalPrimary: 0,
+      totalSecondary: 0,
+      primaryAssetPrice: 0,
+      secondaryAssetPrice: 0,
+    });
+
+    // Opt in for liquidity asset.
+    const liqOptInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
+    await signAndSend(liqOptInTx, account);
+
+    // Add liquidity.
+    const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
+      address: account.addr,
+      primaryAssetAmount: 100_000_000,
+      secondaryAssetAmount: 100_000_000,
+    });
+    expect(addLiqTxGroup.transactions.length).toBe(3);
+    await signAndSend(addLiqTxGroup, account);
+    await pool.updateState();
+    expect(pool.state).toMatchObject({
+      totalLiquidity: 100_000_000,
+      totalPrimary: 100_000_000,
+      totalSecondary: 100_000_000,
+    });
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("1.00");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.00");
+
+    // Remove liquidity.
+    const removeLiqTxGroup = await pool.prepareRemoveLiquidityTxGroup({
+      address: account.addr,
+      amount: 1_000_000,
+    });
+    expect(removeLiqTxGroup.transactions.length).toBe(2);
+    await signAndSend(removeLiqTxGroup, account);
+    await pool.updateState();
+    expect(pool.state).toMatchObject({
+      totalLiquidity: 99_000_000,
+      totalPrimary: 99_000_000,
+      totalSecondary: 99_000_000,
+    });
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("1.00");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.00");
+
+    // Swap coinA.
+    const coinASwap = await pool.prepareSwap({
+      asset: coinA,
+      amount: 2_000_000,
+      slippagePct: 2,
+    });
+    const algoSwapTxGroup = await coinASwap.prepareTxGroup(account.addr);
+    expect(algoSwapTxGroup.transactions.length).toBe(2);
+    await signAndSend(algoSwapTxGroup, account);
+    await pool.updateState();
+    expect(pool.state.totalLiquidity).toBe(99_000_000);
+    expect(pool.state.totalPrimary > 99_000_000).toBe(true);
+    expect(pool.state.totalSecondary < 99_000_000).toBe(true);
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("1.00");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.00");
+
+    // Swap coinB.
+    const coinBSwap = await pool.prepareSwap({
+      asset: coinB,
+      amount: 5_000_000,
+      slippagePct: 2,
+    });
+    const coinSwapTxGroup = await coinBSwap.prepareTxGroup(account.addr);
+    await signAndSend(coinSwapTxGroup, account);
+    await pool.updateState();
+    expect(pool.state.totalLiquidity).toBe(99_000_000);
+    expect(pool.state.totalPrimary < 99_000_000).toBe(true);
+    expect(pool.state.totalSecondary > 99_000_000).toBe(true);
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("1.00");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.00");
+
+    // Only big swaps should affect the price.
+    const bigCoinBSwap = await pool.prepareSwap({
+      asset: coinB,
+      amount: 90_000_000,
+      slippagePct: 2,
+    });
+    const bigCoinSwapTxGroup = await bigCoinBSwap.prepareTxGroup(account.addr);
+    await signAndSend(bigCoinSwapTxGroup, account);
+    await pool.updateState();
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.57");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.76");
+
+    // Check different amplifiers.
+    const poolParams = pool.params as StableswapPoolParams;
+    poolParams.futureA = 1;
+    pool.state = pool["parseInternalState"](pool.internalState);
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.19");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("5.24");
+
+    poolParams.futureA = 1000;
+    pool.state = pool["parseInternalState"](pool.internalState);
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.98");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.02");
+
+    poolParams.futureA = 5000;
+    pool.state = pool["parseInternalState"](pool.internalState);
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("1.00");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.00");
   });
-
-  // Opt in for liquidity asset.
-  const liqOptInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
-  await signAndSend(liqOptInTx, account);
-
-  // Add liquidity.
-  const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
-    address: account.addr,
-    primaryAssetAmount: 100_000,
-    secondaryAssetAmount: 10 ** 18,
-  });
-  expect(addLiqTxGroup.transactions.length).toBe(6);
-  await signAndSend(addLiqTxGroup, account);
-  await pool.updateState();
-  expect(pool.state.totalSecondary).toBe(10 ** 18);
-  let lastState = pool.state;
-
-  // Swap algo.
-  const algoSwap = await pool.prepareSwap({
-    asset: algo,
-    amount: 20_000,
-    slippagePct: 2,
-  });
-  const algoSwapTxGroup = await algoSwap.prepareTxGroup(account.addr);
-  expect(algoSwapTxGroup.transactions.length).toBe(2);
-  await signAndSend(algoSwapTxGroup, account);
-  await pool.updateState();
-  expect(pool.state.totalPrimary).toBeGreaterThan(lastState.totalPrimary);
-  expect(pool.state.totalSecondary).toBeLessThan(lastState.totalSecondary);
-  expect(pool.state.totalLiquidity).toBe(lastState.totalLiquidity);
-  lastState = pool.state;
-
-  // Swap secondary.
-  const coinSwap = await pool.prepareSwap({
-    asset: pool.secondaryAsset,
-    amount: 10 ** 18,
-    slippagePct: 2,
-  });
-  const coinSwapTxGroup = await coinSwap.prepareTxGroup(account.addr);
-  await signAndSend(coinSwapTxGroup, account);
-  await pool.updateState();
-  expect(pool.state.totalPrimary).toBeLessThan(lastState.totalPrimary);
-  expect(pool.state.totalSecondary).toBeGreaterThan(lastState.totalSecondary);
-  expect(pool.state.totalLiquidity).toBe(lastState.totalLiquidity);
-
-  // Remove liquidity.
-  const removeLiqTxGroup = await pool.prepareRemoveLiquidityTxGroup({
-    address: account.addr,
-    amount: pool.state.totalLiquidity - 1000,
-  });
-  expect(removeLiqTxGroup.transactions.length).toBe(2);
-  await signAndSend(removeLiqTxGroup, account);
-  await pool.updateState();
-  expect(pool.state.totalLiquidity).toBe(1000);
-});
-
-it("Stableswap pool e2e scenario", async () => {
-  const account = await newAccount();
-  const pact = new PactClient(algod);
-
-  const coinAIndex = await createAsset(account, "COIN_A", 6, 10 ** 10);
-  const coinBIndex = await createAsset(account, "COIN_B", 6, 10 ** 10);
-
-  const coinA = await pact.fetchAsset(coinAIndex);
-  const coinB = await pact.fetchAsset(coinBIndex);
-
-  const appId = await deployStableswapContract(
-    account,
-    coinAIndex,
-    coinBIndex,
-    { amplifier: 20 },
-  );
-  const pool = await pact.fetchPoolById(appId);
-
-  expect(pool.state).toEqual({
-    totalLiquidity: 0,
-    totalPrimary: 0,
-    totalSecondary: 0,
-    primaryAssetPrice: 0,
-    secondaryAssetPrice: 0,
-  });
-
-  // Opt in for liquidity asset.
-  const liqOptInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
-  await signAndSend(liqOptInTx, account);
-
-  // Add liquidity.
-  const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
-    address: account.addr,
-    primaryAssetAmount: 100_000_000,
-    secondaryAssetAmount: 100_000_000,
-  });
-  expect(addLiqTxGroup.transactions.length).toBe(3);
-  await signAndSend(addLiqTxGroup, account);
-  await pool.updateState();
-  expect(pool.state).toMatchObject({
-    totalLiquidity: 100_000_000,
-    totalPrimary: 100_000_000,
-    totalSecondary: 100_000_000,
-  });
-  expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("1.00");
-  expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.00");
-
-  // Remove liquidity.
-  const removeLiqTxGroup = await pool.prepareRemoveLiquidityTxGroup({
-    address: account.addr,
-    amount: 1_000_000,
-  });
-  expect(removeLiqTxGroup.transactions.length).toBe(2);
-  await signAndSend(removeLiqTxGroup, account);
-  await pool.updateState();
-  expect(pool.state).toMatchObject({
-    totalLiquidity: 99_000_000,
-    totalPrimary: 99_000_000,
-    totalSecondary: 99_000_000,
-  });
-  expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("1.00");
-  expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.00");
-
-  // Swap algo.
-  const algoSwap = await pool.prepareSwap({
-    asset: coinA,
-    amount: 2_000_000,
-    slippagePct: 2,
-  });
-  const algoSwapTxGroup = await algoSwap.prepareTxGroup(account.addr);
-  expect(algoSwapTxGroup.transactions.length).toBe(2);
-  await signAndSend(algoSwapTxGroup, account);
-  await pool.updateState();
-  expect(pool.state.totalLiquidity).toBe(99_000_000);
-  expect(pool.state.totalPrimary > 99_000_000).toBe(true);
-  expect(pool.state.totalSecondary < 99_000_000).toBe(true);
-  expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("1.00");
-  expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.00");
-
-  // Swap secondary.
-  const coinSwap = await pool.prepareSwap({
-    asset: coinB,
-    amount: 5_000_000,
-    slippagePct: 2,
-  });
-  const coinSwapTxGroup = await coinSwap.prepareTxGroup(account.addr);
-  await signAndSend(coinSwapTxGroup, account);
-  await pool.updateState();
-  expect(pool.state.totalLiquidity).toBe(99_000_000);
-  expect(pool.state.totalPrimary < 99_000_000).toBe(true);
-  expect(pool.state.totalSecondary > 99_000_000).toBe(true);
-  expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("1.00");
-  expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.00");
-
-  // Only big swaps should affect the price
-  const bigCoinSwap = await pool.prepareSwap({
-    asset: coinB,
-    amount: 90_000_000,
-    slippagePct: 2,
-  });
-  const bigCoinSwapTxGroup = await bigCoinSwap.prepareTxGroup(account.addr);
-  await signAndSend(bigCoinSwapTxGroup, account);
-  await pool.updateState();
-  expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.57");
-  expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.76");
-
-  // Check different amplifiers
-  const poolParams = pool.params as StableswapPoolParams;
-  poolParams.futureA = 1;
-  pool.state = pool["parseInternalState"](pool.internalState);
-  expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.19");
-  expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("5.24");
-
-  poolParams.futureA = 1000;
-  pool.state = pool["parseInternalState"](pool.internalState);
-  expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.98");
-  expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.02");
-
-  poolParams.futureA = 5000;
-  pool.state = pool["parseInternalState"](pool.internalState);
-  expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("1.00");
-  expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.00");
 });

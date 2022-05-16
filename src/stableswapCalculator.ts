@@ -48,7 +48,7 @@ export class StableswapCalculator implements SwapCalculator {
     // This price is highly inaccurate for low liquidity pools.
     const nLiqA = decimalLiqA * ratio;
     const nLiqB = decimalLiqB * ratio;
-    const liqA = BigInt(nLiqA);
+    const liqA = BigInt(Math.round(nLiqA));
     const liqB = BigInt(Math.round(nLiqB));
     const amountDeposited = BigInt(
       // The division helps minimize price impact of simulated swap.

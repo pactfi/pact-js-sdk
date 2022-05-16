@@ -309,7 +309,7 @@ export class Pool {
     const tx3 = this.makeApplicationNoopTx({
       address: options.address,
       suggestedParams: options.suggestedParams,
-      fee: this.poolType === "CONSTANT_PRODUCT" ? 3000 : 10_000,
+      fee: this.poolType === "CONSTANT_PRODUCT" ? 3000 : 7000,
       args: ["ADDLIQ", 0],
       extraAsset: this.liquidityAsset,
       note: options.note,
@@ -336,7 +336,7 @@ export class Pool {
     const txn2 = this.makeApplicationNoopTx({
       address: options.address,
       suggestedParams: options.suggestedParams,
-      fee: this.poolType === "CONSTANT_PRODUCT" ? 3000 : 10_000,
+      fee: 3000,
       args: ["REMLIQ", 0, 0], // min expected primary, min expected secondary
     });
 
@@ -382,7 +382,7 @@ export class Pool {
     const txn2 = this.makeApplicationNoopTx({
       address,
       suggestedParams,
-      fee: this.poolType === "CONSTANT_PRODUCT" ? 2000 : 8000,
+      fee: this.poolType === "CONSTANT_PRODUCT" ? 2000 : 7000,
       args: ["SWAP", swap.effect.minimumAmountReceived],
     });
 
