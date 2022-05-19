@@ -10,6 +10,19 @@ export type AppInternalState = {
   ASSET_A: number;
   ASSET_B: number;
   FEE_BPS: number;
+
+  // Stableswaps only below.
+  PACT_FEE_BPS?: number;
+  INITIAL_A?: number;
+  INITIAL_A_TIME?: number;
+  FUTURE_A?: number;
+  FUTURE_A_TIME?: number;
+  ADMIN?: string;
+  FUTURE_ADMIN?: string;
+  ADMIN_TRANSFER_DEADLINE?: number;
+  TREASURY?: string;
+  PRIMARY_FEES?: number;
+  SECONDARY_FEES?: number;
 };
 
 export type PoolState = {

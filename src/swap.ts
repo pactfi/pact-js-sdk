@@ -3,9 +3,9 @@ import { Pool } from "./pool";
 import { TransactionGroup } from "./transactionGroup";
 
 export type SwapEffect = {
-  amountIn: number;
-  amountOut: number;
-  minimumAmountIn: number;
+  amountReceived: number;
+  amountDeposited: number;
+  minimumAmountReceived: number;
   primaryAssetPriceAfterSwap: number;
   secondaryAssetPriceAfterSwap: number;
   primaryAssetPriceImpactPct: number;
@@ -17,13 +17,14 @@ export type SwapEffect = {
 export class Swap {
   effect: SwapEffect;
 
-  assetIn = this.pool.getOtherAsset(this.assetOut);
+  assetReceived = this.pool.getOtherAsset(this.assetDeposited);
 
   constructor(
     public pool: Pool,
-    public assetOut: Asset,
-    public amountOut: number,
+    public assetDeposited: Asset,
+    public amount: number,
     public slippagePct: number,
+    public isReversed = false,
   ) {
     this.validateSwap();
     this.effect = this.buildEffect();
@@ -43,64 +44,72 @@ export class Swap {
   }
 
   private buildEffect(): SwapEffect {
-    const amountIn = Math.floor(
-      this.pool.calculator
-        .getAmountIn(this.assetOut, this.amountOut)
-        .toNumber(),
-    );
+    const calc = this.pool.calculator;
 
-    let primaryLiqChange, secondaryLiqChange: number;
-    if (this.assetOut.index === this.pool.primaryAsset.index) {
-      primaryLiqChange = this.amountOut;
-      secondaryLiqChange = -amountIn;
+    let amountReceived: number;
+    let amountDeposited: number;
+    if (this.isReversed) {
+      amountReceived = this.amount;
+      amountDeposited = Number(
+        calc.netAmountReceivedToAmountDeposited(
+          this.assetDeposited,
+          BigInt(this.amount),
+        ),
+      );
     } else {
-      primaryLiqChange = -amountIn;
-      secondaryLiqChange = this.amountOut;
+      amountReceived = Number(
+        calc.amountDepositedToNetAmountReceived(
+          this.assetDeposited,
+          BigInt(this.amount),
+        ),
+      );
+      amountDeposited = this.amount;
     }
 
-    const primaryAssetPriceAfterSwap = this.pool.calculator
-      .getAssetPriceAfterLiqChange(
+    let primaryLiqChange, secondaryLiqChange: number;
+    if (this.assetDeposited.index === this.pool.primaryAsset.index) {
+      primaryLiqChange = amountDeposited;
+      secondaryLiqChange = -amountReceived;
+    } else {
+      primaryLiqChange = -amountReceived;
+      secondaryLiqChange = amountDeposited;
+    }
+
+    const primaryAssetPriceAfterSwap = calc.getAssetPriceAfterLiqChange(
+      this.pool.primaryAsset,
+      primaryLiqChange,
+      secondaryLiqChange,
+    );
+    const secondaryAssetPriceAfterSwap = calc.getAssetPriceAfterLiqChange(
+      this.pool.secondaryAsset,
+      primaryLiqChange,
+      secondaryLiqChange,
+    );
+
+    return {
+      amountDeposited,
+      amountReceived,
+      minimumAmountReceived: Number(
+        calc.getMinimumAmountReceived(
+          this.assetDeposited,
+          BigInt(amountDeposited),
+          BigInt(this.slippagePct),
+        ),
+      ),
+      price: calc.getSwapPrice(this.assetDeposited, BigInt(amountDeposited)),
+      primaryAssetPriceAfterSwap,
+      secondaryAssetPriceAfterSwap,
+      primaryAssetPriceImpactPct: calc.getPriceImpactPct(
         this.pool.primaryAsset,
         primaryLiqChange,
         secondaryLiqChange,
-      )
-      .toNumber();
-    const secondaryAssetPriceAfterSwap = this.pool.calculator
-      .getAssetPriceAfterLiqChange(
+      ),
+      secondaryAssetPriceImpactPct: calc.getPriceImpactPct(
         this.pool.secondaryAsset,
         primaryLiqChange,
         secondaryLiqChange,
-      )
-      .toNumber();
-
-    return {
-      amountOut: this.amountOut,
-      amountIn,
-      minimumAmountIn: Math.floor(
-        this.pool.calculator
-          .getMinimumAmountIn(this.assetOut, this.amountOut, this.slippagePct)
-          .toNumber(),
       ),
-      price: this.pool.calculator.getSwapPrice(this.assetOut, this.amountOut),
-      primaryAssetPriceAfterSwap,
-      secondaryAssetPriceAfterSwap,
-      primaryAssetPriceImpactPct: this.pool.calculator
-        .getPriceImpactPct(
-          this.pool.primaryAsset,
-          primaryLiqChange,
-          secondaryLiqChange,
-        )
-        .toNumber(),
-      secondaryAssetPriceImpactPct: this.pool.calculator
-        .getPriceImpactPct(
-          this.pool.secondaryAsset,
-          primaryLiqChange,
-          secondaryLiqChange,
-        )
-        .toNumber(),
-      fee: Math.ceil(
-        this.pool.calculator.getFee(this.assetOut, this.amountOut).toNumber(),
-      ),
+      fee: Number(calc.getFee(this.assetDeposited, BigInt(amountDeposited))),
     };
   }
 }
