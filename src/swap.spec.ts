@@ -111,7 +111,7 @@ function swapTestCase(poolType: PoolType) {
     const { account, algo, coin, pool } = await makeFreshTestBed({
       poolType: poolType,
     });
-    const [primaryLiq, secondaryLiq, amount] = [20_000, 20_000, 1_000];
+    const [primaryLiq, secondaryLiq, amount] = [10_000, 10_000, 1_000];
     await addLiqudity(account, pool, primaryLiq, secondaryLiq);
 
     const swap = pool.prepareSwap({
@@ -462,8 +462,10 @@ describe("stable swap", () => {
   it("changing amplifier", async () => {
     const { pool } = await makeFreshTestBed({
       poolType: "STABLESWAP",
-      amplifier: 100,
+      amplifier: 10,
     });
+
+    const aPrecision = 1000n;
 
     const params = pool.params as StableswapPoolParams;
     const swapCalculator = pool.calculator
@@ -474,75 +476,75 @@ describe("stable swap", () => {
     jest.useFakeTimers("modern");
     jest.setSystemTime(initialTime);
 
-    expect(swapCalculator.getAmplifier()).toBe(100n);
+    expect(swapCalculator.getAmplifier()).toBe(10n * aPrecision);
 
     // Let's increase the amplifier.
-    params.futureA = 200;
+    params.futureA = 20 * 1000;
     params.futureATime += 1000;
 
     const swapArgs: [bigint, bigint, bigint] = [2000n, 1500n, 1000n];
 
-    expect(swapCalculator.getAmplifier()).toBe(100n);
-    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(984n);
-    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1017n);
+    expect(swapCalculator.getAmplifier()).toBe(10n * aPrecision);
+    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(933n);
+    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1084n);
 
     jest.setSystemTime(initialTime + 100);
-    expect(swapCalculator.getAmplifier()).toBe(110n);
-    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(985n);
-    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1016n);
+    expect(swapCalculator.getAmplifier()).toBe(11n * aPrecision);
+    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(938n);
+    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1077n);
 
     jest.setSystemTime(initialTime + 500);
-    expect(swapCalculator.getAmplifier()).toBe(150n);
-    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(989n);
-    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1011n);
+    expect(swapCalculator.getAmplifier()).toBe(15n * aPrecision);
+    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(952n);
+    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1056n);
 
     jest.setSystemTime(initialTime + 1000);
-    expect(swapCalculator.getAmplifier()).toBe(200n);
-    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(992n);
-    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1008n);
+    expect(swapCalculator.getAmplifier()).toBe(20n * aPrecision);
+    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(962n);
+    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1043n);
 
     jest.setSystemTime(initialTime + 2000);
-    expect(swapCalculator.getAmplifier()).toBe(200n);
+    expect(swapCalculator.getAmplifier()).toBe(20n * aPrecision);
 
     // Let's decrease the amplifier.
     params.initialA = params.futureA;
     params.initialATime = Date.now();
-    params.futureA = 150;
+    params.futureA = 15 * 1000;
     params.futureATime = params.initialATime + 2000;
     initialTime = params.initialATime;
 
-    expect(swapCalculator.getAmplifier()).toBe(200n);
-    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(992n);
-    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1008n);
+    expect(swapCalculator.getAmplifier()).toBe(20n * aPrecision);
+    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(962n);
+    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1043n);
 
     jest.setSystemTime(initialTime + 100);
-    expect(swapCalculator.getAmplifier()).toBe(198n);
-    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(992n);
-    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1008n);
+    expect(swapCalculator.getAmplifier()).toBe(19750n);
+    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(962n);
+    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1044n);
 
     jest.setSystemTime(initialTime + 1000);
-    expect(swapCalculator.getAmplifier()).toBe(175n);
-    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(991n);
-    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1010n);
+    expect(swapCalculator.getAmplifier()).toBe(17500n);
+    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(957n);
+    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1050n);
 
     jest.setSystemTime(initialTime + 2000);
-    expect(swapCalculator.getAmplifier()).toBe(150n);
-    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(989n);
-    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1011n);
+    expect(swapCalculator.getAmplifier()).toBe(15n * aPrecision);
+    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(952n);
+    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1056n);
 
     jest.setSystemTime(initialTime + 3000);
-    expect(swapCalculator.getAmplifier()).toBe(150n);
+    expect(swapCalculator.getAmplifier()).toBe(15n * aPrecision);
 
-    params.futureA = 5000;
-    expect(swapCalculator.getAmplifier()).toBe(5000n);
-    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(1001n);
-    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(999n);
+    params.futureA = 100 * 1000;
+    expect(swapCalculator.getAmplifier()).toBe(100n * aPrecision);
+    expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(992n);
+    expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1008n);
   });
 
   it("swap with big amplifier", async () => {
     const { account, pool, algo } = await makeFreshTestBed({
       poolType: "STABLESWAP",
-      amplifier: 5000,
+      amplifier: 200,
     });
 
     await addLiqudity(account, pool, 20000, 15000);
@@ -553,7 +555,7 @@ describe("stable swap", () => {
       slippagePct: 0,
     });
 
-    expect(swap.effect.amountReceived + swap.effect.fee).toBe(1001);
+    expect(swap.effect.amountReceived + swap.effect.fee).toBe(999);
 
     await testSwap(swap, account);
   });

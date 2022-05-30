@@ -102,8 +102,11 @@ export class StableswapCalculator implements SwapCalculator {
       return S;
     }
 
+    const precision = BigInt(this.stableswapParams.precision);
+
     let D = S;
-    const Ann = amp * 2n;
+    const Ann = amp * 4n;
+
     let i = 0;
     let Dprev = D;
     while (i < 255) {
@@ -112,8 +115,8 @@ export class StableswapCalculator implements SwapCalculator {
       D_P = (D_P * D) / (liqA * 2n);
       D_P = (D_P * D) / (liqB * 2n);
       Dprev = D;
-      const numerator = D * (Ann * S + D_P * 2n);
-      const divisor = (Ann - 1n) * D + 3n * D_P;
+      const numerator = D * ((Ann * S) / precision + D_P * 2n);
+      const divisor = ((Ann - precision) * D) / precision + 3n * D_P;
       D = numerator / divisor;
       if (D > Dprev) {
         if (D - Dprev <= 1n) {
@@ -130,14 +133,16 @@ export class StableswapCalculator implements SwapCalculator {
   }
 
   private getNewLiq(liqOther: bigint, amplifier: bigint, inv: bigint): bigint {
+    const precision = BigInt(this.stableswapParams.precision);
+
     const S = liqOther;
     const D = inv;
     const A = amplifier;
     const P = liqOther;
-    const Ann = A * 2n;
+    const Ann = A * 4n;
 
-    const b = S + D / Ann;
-    const c = (D * D * D) / (4n * P * Ann);
+    const b = S + (D * precision) / Ann;
+    const c = (precision * (D * D * D)) / (4n * P * Ann);
 
     const a_q = 1n;
     const b_q = b - D;

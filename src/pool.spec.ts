@@ -477,24 +477,34 @@ describe("Stableswap pool", () => {
     const bigCoinSwapTxGroup = await bigCoinBSwap.prepareTxGroup(account.addr);
     await signAndSend(bigCoinSwapTxGroup, account);
     await pool.updateState();
-    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.57");
-    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.76");
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.62");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.61");
 
     // Check different amplifiers.
     const poolParams = pool.params as StableswapPoolParams;
     poolParams.futureA = 1;
     pool.state = pool["parseInternalState"](pool.internalState);
-    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.19");
-    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("5.24");
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.07");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("13.97");
 
     poolParams.futureA = 1000;
     pool.state = pool["parseInternalState"](pool.internalState);
-    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.98");
-    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.02");
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.20");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("5.15");
 
-    poolParams.futureA = 5000;
+    poolParams.futureA = 5 * 1000;
     pool.state = pool["parseInternalState"](pool.internalState);
-    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("1.00");
-    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.00");
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.36");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("2.78");
+
+    poolParams.futureA = 100 * 1000;
+    pool.state = pool["parseInternalState"](pool.internalState);
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.88");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.14");
+
+    poolParams.futureA = 1000 * 1000;
+    pool.state = pool["parseInternalState"](pool.internalState);
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.99");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.01");
   });
 });

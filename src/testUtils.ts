@@ -103,6 +103,7 @@ export function deployContract(
   } = {},
 ): Promise<number> {
   const mnemonic = algosdk.secretKeyToMnemonic(account.sk);
+
   const command = `
     cd algorand-testbed && \\
     ALGOD_URL=http://localhost:8787 \\
@@ -114,7 +115,7 @@ export function deployContract(
    --secondary_asset_id=${secondaryAssetIndex} \\
    --fee_bps=${options.feeBps ?? 30} \\
    --pact_fee_bps=${options.pactFeeBps ?? 30} \\
-   --amplifier=${options.amplifier ?? 80} \\
+   --amplifier=${(options.amplifier ?? 80) * 1000} \\
    --admin_and_treasury_address=${account.addr}
    `;
 

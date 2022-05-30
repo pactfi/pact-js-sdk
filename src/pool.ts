@@ -213,6 +213,7 @@ export type StableswapPoolParams = {
   initialATime: number;
   futureA: number;
   futureATime: number;
+  precision: number;
 };
 
 /**
@@ -305,6 +306,7 @@ export class Pool {
         initialATime: internalState.INITIAL_A_TIME,
         futureA: internalState.FUTURE_A,
         futureATime: internalState.FUTURE_A_TIME,
+        precision: internalState.PRECISION,
       };
     } else {
       this.poolType = "CONSTANT_PRODUCT";

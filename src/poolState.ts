@@ -27,6 +27,7 @@ export type AppInternalState = {
   TREASURY?: string;
   PRIMARY_FEES?: number;
   SECONDARY_FEES?: number;
+  PRECISION?: number;
 };
 
 /**
@@ -50,8 +51,14 @@ export function parseGlobalPoolState(rawState: any[]): AppInternalState {
   // Old contracts don't have CONFIG (testnet only). The default is [0, 0, 30].
   const CONFIG = state.CONFIG ?? "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAe";
   delete state.CONFIG;
-  const [ASSET_A, ASSET_B, FEE_BPS] = decodeUint64Array(CONFIG);
-  return { ASSET_A, ASSET_B, FEE_BPS, ...state };
+
+  if (state.INITIAL_A === undefined) {
+    const [ASSET_A, ASSET_B, FEE_BPS] = decodeUint64Array(CONFIG);
+    return { ASSET_A, ASSET_B, FEE_BPS, ...state };
+  } else {
+    const [ASSET_A, ASSET_B, FEE_BPS, PRECISION] = decodeUint64Array(CONFIG);
+    return { ASSET_A, ASSET_B, FEE_BPS, PRECISION, ...state };
+  }
 }
 
 /**
