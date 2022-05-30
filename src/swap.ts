@@ -149,7 +149,7 @@ export class Swap {
         calc.getMinimumAmountReceived(
           this.assetDeposited,
           BigInt(amountDeposited),
-          BigInt(this.slippagePct),
+          BigInt(Math.round(this.slippagePct * 100)),
         ),
       ),
       price: calc.getSwapPrice(this.assetDeposited, BigInt(amountDeposited)),

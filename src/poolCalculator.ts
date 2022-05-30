@@ -176,20 +176,20 @@ export class PoolCalculator {
    *
    * @param asset The asset to deposit in the contract.
    * @param amountDeposited The amount to deposit in the contract.
-   * @param slippagePct Slippage in percents.
+   * @param slippageBps Slippage in base points.
    *
    * @returns The minimum amount to receive from the contract.
    */
   getMinimumAmountReceived(
     asset: Asset,
     amountDeposited: bigint,
-    slippagePct: bigint,
+    slippageBps: bigint,
   ): bigint {
     const amountReceived = this.amountDepositedToNetAmountReceived(
       asset,
       amountDeposited,
     );
-    return amountReceived - (amountReceived * slippagePct) / 100n;
+    return amountReceived - (amountReceived * slippageBps) / 10_000n;
   }
 
   /**
