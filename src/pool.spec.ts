@@ -439,7 +439,7 @@ describe("Stableswap pool", () => {
 
     // Swap coinA.
     const coinASwap = await pool.prepareSwap({
-      asset: coinA,
+      asset: pool.primaryAsset,
       amount: 2_000_000,
       slippagePct: 2,
     });
@@ -455,7 +455,7 @@ describe("Stableswap pool", () => {
 
     // Swap coinB.
     const coinBSwap = await pool.prepareSwap({
-      asset: coinB,
+      asset: pool.secondaryAsset,
       amount: 5_000_000,
       slippagePct: 2,
     });
@@ -470,41 +470,41 @@ describe("Stableswap pool", () => {
 
     // Only big swaps should affect the price.
     const bigCoinBSwap = await pool.prepareSwap({
-      asset: coinB,
+      asset: pool.secondaryAsset,
       amount: 90_000_000,
       slippagePct: 2,
     });
     const bigCoinSwapTxGroup = await bigCoinBSwap.prepareTxGroup(account.addr);
     await signAndSend(bigCoinSwapTxGroup, account);
     await pool.updateState();
-    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.62");
-    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.61");
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("1.61");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("0.62");
 
     // Check different amplifiers.
     const poolParams = pool.params as StableswapPoolParams;
     poolParams.futureA = 1;
     pool.state = pool["parseInternalState"](pool.internalState);
-    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.07");
-    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("13.97");
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("13.97");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("0.07");
 
     poolParams.futureA = 1000;
     pool.state = pool["parseInternalState"](pool.internalState);
-    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.20");
-    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("5.15");
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("5.15");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("0.20");
 
     poolParams.futureA = 5 * 1000;
     pool.state = pool["parseInternalState"](pool.internalState);
-    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.36");
-    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("2.78");
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("2.78");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("0.36");
 
     poolParams.futureA = 100 * 1000;
     pool.state = pool["parseInternalState"](pool.internalState);
-    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.88");
-    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.14");
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("1.14");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("0.88");
 
     poolParams.futureA = 1000 * 1000;
     pool.state = pool["parseInternalState"](pool.internalState);
-    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("0.99");
-    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("1.01");
+    expect(pool.state.primaryAssetPrice.toFixed(2)).toBe("1.01");
+    expect(pool.state.secondaryAssetPrice.toFixed(2)).toBe("0.99");
   });
 });

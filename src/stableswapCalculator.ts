@@ -58,8 +58,8 @@ export class StableswapCalculator implements SwapCalculator {
       Math.round(Math.min(ratio, nLiqA / 100, nLiqB / 100)),
     );
     const amountReceived = this.getSwapGrossAmountReceived(
-      liqA,
       liqB,
+      liqA,
       amountDeposited,
     );
     return Number(amountDeposited) / Number(amountReceived);
