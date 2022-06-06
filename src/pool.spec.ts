@@ -381,9 +381,6 @@ describe("Stableswap pool", () => {
     const coinAIndex = await createAsset(account, "COIN_A", 6, 10 ** 10);
     const coinBIndex = await createAsset(account, "COIN_B", 6, 10 ** 10);
 
-    const coinA = await pact.fetchAsset(coinAIndex);
-    const coinB = await pact.fetchAsset(coinBIndex);
-
     const appId = await deployStableswapContract(
       account,
       coinAIndex,

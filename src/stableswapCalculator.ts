@@ -47,7 +47,7 @@ export class StableswapCalculator implements SwapCalculator {
       );
     }
 
-    // Price is calculated by simulating a swap for 1 token.
+    // Price is calculated by simulating a swap for 10**6 of micro values.
     // This price is highly inaccurate for low liquidity pools.
     const nLiqA = decimalLiqA * ratio;
     const nLiqB = decimalLiqB * ratio;
@@ -55,7 +55,7 @@ export class StableswapCalculator implements SwapCalculator {
     const liqB = BigInt(Math.round(nLiqB));
     const amountDeposited = BigInt(
       // The division helps minimize price impact of simulated swap.
-      Math.round(Math.min(ratio, nLiqA / 100, nLiqB / 100)),
+      Math.round(Math.min(10 ** 6, nLiqA / 100, nLiqB / 100)),
     );
     const amountReceived = this.getSwapGrossAmountReceived(
       liqB,
