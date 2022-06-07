@@ -591,4 +591,27 @@ describe("stable swap", () => {
     });
     await testSwap(swap, account);
   });
+
+  it("pool with convergence issues", async () => {
+    const account = await newAccount();
+    const pact = new PactClient(algod);
+
+    const coinAIndex = await createAsset(account, "COIN_A", 0, 10 ** 15);
+    const coinBIndex = await createAsset(account, "COIN_B", 0, 10 ** 15);
+
+    const appId = await deployStableswapContract(
+      account,
+      coinAIndex,
+      coinBIndex,
+      { feeBps: 5, pactFeeBps: 5, amplifier: 5 },
+    );
+    const pool = await pact.fetchPoolById(appId);
+
+    // Pool highly out of balance.
+    await addLiqudity(account, pool, 20692785, 227709222785);
+
+    await pool.updateState();
+    expect(pool.state.primaryAssetPrice).toBe(0); // Because of convergence issues.
+    expect(pool.state.secondaryAssetPrice).toBeGreaterThan(0); // This is calculated normally.
+  });
 });

@@ -2,6 +2,8 @@ import { isqrt } from "./isqrt";
 import { Pool, StableswapPoolParams } from "./pool";
 import { SwapCalculator } from "./types";
 
+const MAX_GET_PRICE_RETRIES = 5;
+
 /**
  * An implementation of a math behind stableswap pools.
  */
@@ -35,6 +37,9 @@ export class StableswapCalculator implements SwapCalculator {
     return BigInt(currentA);
   }
 
+  /**
+   * May return zero for highly unbalanced pools.
+   */
   getPrice(decimalLiqA: number, decimalLiqB: number): number {
     if (!decimalLiqA || !decimalLiqB) {
       return 0;
@@ -47,22 +52,48 @@ export class StableswapCalculator implements SwapCalculator {
       );
     }
 
-    // Price is calculated by simulating a swap for 10**6 of micro values.
-    // This price is highly inaccurate for low liquidity pools.
+    return this._getPrice(decimalLiqA, decimalLiqB, MAX_GET_PRICE_RETRIES);
+  }
+
+  /**
+   * Price is calculated by simulating a swap for 10**6 of micro values.
+   * This price is highly inaccurate for low liquidity pools.
+   * In case of "didn't converge error" we try to simulate a swap using a different swap amount.
+   * Returns zero if all retries will fail.
+   */
+  private _getPrice(
+    decimalLiqA: number,
+    decimalLiqB: number,
+    retries: number,
+  ): number {
+    if (retries <= 0) {
+      return 0;
+    }
+
+    const ratio = this.pool.primaryAsset.ratio;
     const nLiqA = decimalLiqA * ratio;
     const nLiqB = decimalLiqB * ratio;
     const liqA = BigInt(Math.round(nLiqA));
     const liqB = BigInt(Math.round(nLiqB));
+    const swapAmount = 10 ** 6 * (MAX_GET_PRICE_RETRIES - retries + 1);
     const amountDeposited = BigInt(
       // The division helps minimize price impact of simulated swap.
-      Math.round(Math.min(10 ** 6, nLiqA / 100, nLiqB / 100)),
+      Math.round(Math.min(swapAmount, nLiqA / 100, nLiqB / 100)),
     );
-    const amountReceived = this.getSwapGrossAmountReceived(
-      liqB,
-      liqA,
-      amountDeposited,
-    );
-    return Number(amountDeposited) / Number(amountReceived);
+
+    try {
+      const amountReceived = this.getSwapGrossAmountReceived(
+        liqB,
+        liqA,
+        amountDeposited,
+      );
+      return Number(amountDeposited) / Number(amountReceived);
+    } catch (error: any) {
+      if (error.message.includes("Didn't converge")) {
+        return this._getPrice(decimalLiqA, decimalLiqB, retries - 1);
+      }
+      throw error;
+    }
   }
 
   getSwapGrossAmountReceived(
