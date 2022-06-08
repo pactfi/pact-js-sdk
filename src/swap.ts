@@ -1,6 +1,15 @@
 import { Asset } from "./asset";
+import { PactSdkError } from "./exceptions";
 import { Pool } from "./pool";
 import { TransactionGroup } from "./transactionGroup";
+
+export class SwapValidationError extends PactSdkError {}
+
+export class LiquiditySurpassedError extends SwapValidationError {
+  constructor() {
+    super("Current liquidity doesn't allow to swap for this amount.");
+  }
+}
 
 /**
  * Swap Effect are the basic details of the effect on the pool of performing the swap.
@@ -52,31 +61,35 @@ export class Swap {
   /**
    * If `true` then `amount` is what you want to receive from the swap. Otherwise, it's an amount that you want to swap (deposit). Note that the contracts do not support the "swap exact for" swap. It works by calculating the amount to deposit on the client side and doing a normal swap on the exchange.
    */
-  swapExactFor = false;
+  swapForExact = false;
 
   /**
    * @param pool The pool the swap is going to be performed in.
    * @param assetDeposited The asset that will be swapped (deposited in the contract).
-   * @param amount Either the amount to swap (deposit) or the amount to receive depending on the `swapExactFor` parameter.
+   * @param amount Either the amount to swap (deposit) or the amount to receive depending on the `swapForExact` parameter.
    * @param slippagePct The maximum amount of slippage allowed in performing the swap.
-   * @param swapExactFor If `true` then `amount` is what you want to receive from the swap. Otherwise, it's an amount that you want to swap (deposit).
+   * @param swapForExact If `true` then `amount` is what you want to receive from the swap. Otherwise, it's an amount that you want to swap (deposit).
    */
   constructor(
     pool: Pool,
     assetDeposited: Asset,
     amount: number,
     slippagePct: number,
-    swapExactFor = false,
+    swapForExact = false,
   ) {
     this.pool = pool;
     this.assetDeposited = assetDeposited;
     this.assetReceived = this.pool.getOtherAsset(this.assetDeposited);
     this.amount = amount;
     this.slippagePct = slippagePct;
-    this.swapExactFor = swapExactFor;
+    this.swapForExact = swapForExact;
 
     this.validateSwap();
     this.effect = this.buildEffect();
+
+    if (this.swapForExact && this.effect.amountDeposited < 0) {
+      throw new LiquiditySurpassedError();
+    }
   }
 
   /**
@@ -92,10 +105,19 @@ export class Swap {
 
   private validateSwap() {
     if (this.slippagePct < 0 || this.slippagePct > 100) {
-      throw Error("Splippage must be between 0 and 100");
+      throw new SwapValidationError("Splippage must be between 0 and 100.");
     }
     if (this.pool.calculator.isEmpty) {
-      throw Error("Pool is empty and swaps are impossible.");
+      throw new SwapValidationError("Pool is empty and swaps are impossible.");
+    }
+    if (this.swapForExact) {
+      const maxAmount =
+        this.assetDeposited.index === this.pool.primaryAsset.index
+          ? this.pool.state.totalSecondary
+          : this.pool.state.totalPrimary;
+      if (this.amount >= maxAmount) {
+        throw new LiquiditySurpassedError();
+      }
     }
   }
 
@@ -104,7 +126,7 @@ export class Swap {
 
     let amountReceived: number;
     let amountDeposited: number;
-    if (this.swapExactFor) {
+    if (this.swapForExact) {
       amountReceived = this.amount;
       amountDeposited = Number(
         calc.netAmountReceivedToAmountDeposited(

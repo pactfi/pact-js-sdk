@@ -104,7 +104,7 @@ function swapTestCase(poolType: PoolType) {
         asset: shitcoin,
         slippagePct: 10,
       }),
-    ).toThrow(`Asset ${shitcoin.index} not in the pool`);
+    ).toThrow(`Asset with index ${shitcoin.index} is not a pool asset.`);
   });
 
   it("primary with equal liquidity", async () => {
@@ -328,7 +328,7 @@ function swapTestCase(poolType: PoolType) {
     expect(swappedDAmount).toBeGreaterThan(swapD.effect.minimumAmountReceived);
   });
 
-  it("primary with equal liquidity reversed", async () => {
+  it("swap for exact primary with equal liquidity", async () => {
     const { account, algo, coin, pool } = await makeFreshTestBed({
       poolType: poolType,
     });
@@ -363,7 +363,7 @@ function swapTestCase(poolType: PoolType) {
     await testSwap(reversedSwap, account);
   });
 
-  it("primary with not equal liquidity reversed", async () => {
+  it("swap for exact primary with not equal liquidity", async () => {
     const { account, algo, pool } = await makeFreshTestBed({
       poolType: poolType,
     });
@@ -392,6 +392,34 @@ function swapTestCase(poolType: PoolType) {
     expect(swap.effect.amountReceived).toBe(reversedSwap.effect.amountReceived);
 
     await testSwap(reversedSwap, account);
+  });
+
+  it("swap for exact liquidity surpassed", async () => {
+    const { account, algo, pool } = await makeFreshTestBed({
+      poolType: poolType,
+    });
+    await addLiqudity(account, pool, 25_000, 15_000);
+
+    const amounts = [20_000, 15_000, 14_990];
+    for (const amount of amounts) {
+      expect(() =>
+        pool.prepareSwap({
+          amount,
+          asset: algo,
+          slippagePct: 10,
+          swapForExact: true,
+        }),
+      ).toThrow("Current liquidity doesn't allow to swap for this amount.");
+    }
+
+    // This swap works.
+    const swap = pool.prepareSwap({
+      amount: 14_500,
+      asset: algo,
+      slippagePct: 10,
+      swapForExact: true,
+    });
+    expect(swap.effect.amountDeposited).toBeGreaterThan(0);
   });
 
   it("swap and optin in a single group", async () => {

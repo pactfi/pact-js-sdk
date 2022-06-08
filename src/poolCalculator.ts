@@ -2,6 +2,7 @@ import D from "decimal.js";
 
 import { Asset } from "./asset";
 import { ConstantProductCalculator } from "./constantProductCalculator";
+import { PactSdkError } from "./exceptions";
 import { Pool } from "./pool";
 import { StableswapCalculator } from "./stableswapCalculator";
 import { SwapCalculator } from "./types";
@@ -20,7 +21,7 @@ export class PoolCalculator {
     } else if (pool.poolType === "STABLESWAP") {
       this.swapCalculator = new StableswapCalculator(pool);
     } else {
-      throw Error(`Unknown pool type: ${pool.poolType}`);
+      throw new PactSdkError(`Unknown pool type: ${pool.poolType}`);
     }
   }
 

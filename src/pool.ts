@@ -11,6 +11,7 @@ import D from "decimal.js";
 import { listPools } from "./api";
 import { Asset, fetchAssetByIndex } from "./asset";
 import { encode, encodeArray } from "./encoding";
+import { PactSdkError } from "./exceptions";
 import { isqrt } from "./isqrt";
 import { PoolCalculator } from "./poolCalculator";
 import { AppInternalState, PoolState, parseGlobalPoolState } from "./poolState";
@@ -333,7 +334,7 @@ export class Pool {
    *
    * @param asset The primary or secondary asset of the pool.
    *
-   * @throws Error if the asset passed in is not the primary or secondary asset.
+   * @throws PactSdkError if the asset passed in is not the primary or secondary asset.
    *
    * @returns The other asset, if the primary asset was passed in it will be the secondary asset and vice versa.
    *
@@ -345,7 +346,9 @@ export class Pool {
     if (asset.index === this.secondaryAsset.index) {
       return this.primaryAsset;
     }
-    throw Error(`Asset with index ${asset.index} is not a pool asset.`);
+    throw new PactSdkError(
+      `Asset with index ${asset.index} is not a pool asset.`,
+    );
   }
 
   /**
@@ -387,7 +390,7 @@ export class Pool {
    *
    * @param options Options for adding the liquidity.
    *
-   * @throws Error if initial liquidity is too low.
+   * @throws PactSdkError if initial liquidity is too low.
    *
    * @returns Array of transactions to add the liquidity.
    */
@@ -399,7 +402,7 @@ export class Pool {
       const aLiq = BigInt(options.primaryAssetAmount);
       const bLiq = BigInt(options.secondaryAssetAmount);
       if (isqrt(aLiq * bLiq) - 1000n <= 0) {
-        throw Error(
+        throw new PactSdkError(
           "Initial liquidity must satisfy the expression `sqrt(a * b) - 1000 < 0`",
         );
       }
@@ -501,14 +504,14 @@ export class Pool {
    *
    * @param options Swap options.
    *
-   * @throws Error if the Asset in the swap options is not in the pool.
+   * @throws PactSdkError if the asset is not in the pool.
+   * @throws SwapValidationError if slippage is outside of bounds [0, 100].
+   * @throws SwapValidationError if pool is empty.
+   * @throws LiquiditySurpassedError if `swapForExact` flag is enabled and tried to swap for more then current liquidity allows.
    *
    * @returns A new swap object.
    */
   prepareSwap(options: SwapOptions): Swap {
-    if (!this.isAssetInThePool(options.asset)) {
-      throw `Asset ${options.asset.index} not in the pool`;
-    }
     return new Swap(
       this,
       options.asset,

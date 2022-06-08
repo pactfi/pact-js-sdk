@@ -1,8 +1,11 @@
+import { PactSdkError } from "./exceptions";
 import { isqrt } from "./isqrt";
 import { Pool, StableswapPoolParams } from "./pool";
 import { SwapCalculator } from "./types";
 
 const MAX_GET_PRICE_RETRIES = 5;
+
+export class ConvergenceError extends PactSdkError {}
 
 /**
  * An implementation of a math behind stableswap pools.
@@ -89,7 +92,7 @@ export class StableswapCalculator implements SwapCalculator {
       );
       return Number(amountDeposited) / Number(amountReceived);
     } catch (error: any) {
-      if (error.message.includes("Didn't converge")) {
+      if (error instanceof ConvergenceError) {
         return this._getPrice(decimalLiqA, decimalLiqB, retries - 1);
       }
       throw error;
@@ -158,7 +161,7 @@ export class StableswapCalculator implements SwapCalculator {
       }
     }
     if (i === 255) {
-      throw Error(`Didn't converge Dprev=${Dprev}, D=${D}`);
+      throw new ConvergenceError(`Didn't converge Dprev=${Dprev}, D=${D}`);
     }
     return D;
   }

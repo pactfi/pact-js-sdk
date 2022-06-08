@@ -1,5 +1,7 @@
 import algosdk, { Transaction } from "algosdk";
 
+import { PactSdkError } from "./exceptions";
+
 /**
  * A convenience class to make managing Algorand transactions groups easier.
  */
@@ -16,18 +18,20 @@ export class TransactionGroup {
    *
    * @param transactions A list of transactions to put in a group.
    *
-   * @throws If the list is empty (length 0) then throws a general Error.
-   * @throws If the group id was not assigned to the transactions due to a failure in the Algorand SDK.
+   * @throws PactSdkError if the list is empty (length 0).
+   * @throws PactSdkError if the group id was not assigned to the transactions due to a failure in the Algorand SDK.
    */
   constructor(transactions: Transaction[]) {
     if (transactions.length === 0) {
-      throw Error("Cannot create TransactionGroup: empty transactions list.");
+      throw new PactSdkError(
+        "Cannot create TransactionGroup: empty transactions list.",
+      );
     }
     this.transactions = algosdk.assignGroupID(transactions);
 
     const firstTx = this.transactions[0];
     if (!firstTx.group) {
-      throw Error("Cannot retrieve group id from transaction.");
+      throw new PactSdkError("Cannot retrieve group id from transaction.");
     }
     this.groupIdBuffer = firstTx.group;
   }

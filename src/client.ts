@@ -2,6 +2,7 @@ import algosdk from "algosdk";
 
 import { ApiListPoolsResponse, ListPoolsOptions, listPools } from "./api";
 import { Asset, fetchAssetByIndex } from "./asset";
+import { PactSdkError } from "./exceptions";
 import { Pool, fetchPoolById, fetchPoolsByAssets } from "./pool";
 
 /** A type that contains all the possible options to be sent to a client. Currently this contains only the URL for the API. */
@@ -58,7 +59,7 @@ export class PactClient {
    *
    * @param assetIndex The id of the asset.
    *
-   * @throws If the asset does not exist.
+   * @throws PactSdkError If the asset does not exist.
    *
    * @returns Promise that will return an [[Asset]] object for the id.
    */
@@ -75,7 +76,7 @@ export class PactClient {
    */
   listPools(options: ListPoolsOptions = {}): Promise<ApiListPoolsResponse> {
     if (!this.pactApiUrl) {
-      throw Error("No pactApiUrl provided.");
+      throw new PactSdkError("No pactApiUrl provided.");
     }
     return listPools(this.pactApiUrl, options);
   }
