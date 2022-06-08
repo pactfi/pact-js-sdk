@@ -75,10 +75,10 @@ export class StableswapCalculator implements SwapCalculator {
     const nLiqB = decimalLiqB * ratio;
     const liqA = BigInt(Math.round(nLiqA));
     const liqB = BigInt(Math.round(nLiqB));
-    const swapAmount = 10 ** 6 * (MAX_GET_PRICE_RETRIES - retries + 1);
+    const nAmountDeposited = 10 ** 6 * (MAX_GET_PRICE_RETRIES - retries + 1);
     const amountDeposited = BigInt(
       // The division helps minimize price impact of simulated swap.
-      Math.round(Math.min(swapAmount, nLiqA / 100, nLiqB / 100)),
+      Math.round(Math.min(nAmountDeposited, nLiqA / 100, nLiqB / 100)),
     );
 
     try {
