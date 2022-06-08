@@ -41,7 +41,7 @@ export class StableswapCalculator implements SwapCalculator {
   }
 
   /**
-   * May return zero for highly unbalanced pools.
+   * May return NaN for highly unbalanced pools.
    */
   getPrice(decimalLiqA: number, decimalLiqB: number): number {
     if (!decimalLiqA || !decimalLiqB) {
@@ -61,8 +61,8 @@ export class StableswapCalculator implements SwapCalculator {
   /**
    * Price is calculated by simulating a swap for 10**6 of micro values.
    * This price is highly inaccurate for low liquidity pools.
-   * In case of "didn't converge error" we try to simulate a swap using a different swap amount.
-   * Returns zero if all retries will fail.
+   * In case of ConvergenceError we try to simulate a swap using a different swap amount.
+   * Returns NaN if all retries will fail.
    */
   private _getPrice(
     decimalLiqA: number,
@@ -70,7 +70,7 @@ export class StableswapCalculator implements SwapCalculator {
     retries: number,
   ): number {
     if (retries <= 0) {
-      return 0;
+      return NaN;
     }
 
     const ratio = this.pool.primaryAsset.ratio;
@@ -78,7 +78,7 @@ export class StableswapCalculator implements SwapCalculator {
     const nLiqB = decimalLiqB * ratio;
     const liqA = BigInt(Math.round(nLiqA));
     const liqB = BigInt(Math.round(nLiqB));
-    const nAmountDeposited = 10 ** 6 * (MAX_GET_PRICE_RETRIES - retries + 1);
+    const nAmountDeposited = 10 ** (6 + MAX_GET_PRICE_RETRIES - retries);
     const amountDeposited = BigInt(
       // The division helps minimize price impact of simulated swap.
       Math.round(Math.min(nAmountDeposited, nLiqA / 100, nLiqB / 100)),
@@ -90,6 +90,9 @@ export class StableswapCalculator implements SwapCalculator {
         liqA,
         amountDeposited,
       );
+      if (amountReceived === 0n) {
+        return this._getPrice(decimalLiqA, decimalLiqB, retries - 1);
+      }
       return Number(amountDeposited) / Number(amountReceived);
     } catch (error: any) {
       if (error instanceof ConvergenceError) {

@@ -12,10 +12,9 @@ jobs:
       - name: Fetch gh-pages
         uses: actions/checkout@v2
         with:
-          repository: "pactfi/pact-js-sdk-private"
+          repository: "pactfi/pact-js-sdk"
           ref: gh-pages
           path: gh-pages
-          token: ${{ secrets.GH_PAT }}
       - run: npm install
       - run: |
           git config --global user.name "GitHub Actions Bot"

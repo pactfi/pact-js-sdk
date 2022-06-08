@@ -525,7 +525,7 @@ describe("Stableswap pool", () => {
     await addLiqudity(account, pool, 20692785, 227709222785);
 
     await pool.updateState();
-    expect(pool.state.primaryAssetPrice).toBe(0); // Because of convergence issues.
+    expect(pool.state.primaryAssetPrice).toBe(NaN); // Because of convergence issues.
     expect(pool.state.secondaryAssetPrice).toBeGreaterThan(0); // This is calculated normally.
   });
 });
