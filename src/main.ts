@@ -1,16 +1,12 @@
 export * from "./client";
 export * from "./transactionGroup";
 export * from "./swap";
-export { Asset } from "./asset";
-export {
-  Pool,
-  AddLiquidityOptions,
-  RemoveLiquidityOptions,
-  SwapOptions,
-  ListPoolsOptions,
-  ApiListPoolsResponse,
-  ApiPool,
-  ApiAsset,
-} from "./pool";
-export { PoolState } from "./poolState";
+export * from "./asset";
+export * from "./pool";
+export * from "./poolState";
 export * from "./encoding";
+export * from "./poolCalculator";
+export * from "./constantProductCalculator";
+export * from "./stableswapCalculator";
+export * from "./api";
+export * from "./types";

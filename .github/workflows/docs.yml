@@ -1,0 +1,22 @@
+name: Docs
+on:
+  push:
+    tags:
+      - "*.*.*"
+jobs:
+  Push-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+      - name: Fetch gh-pages
+        uses: actions/checkout@v2
+        with:
+          repository: "pactfi/pact-js-sdk"
+          ref: gh-pages
+          path: gh-pages
+      - run: npm install
+      - run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "no.reply@github.actions"
+      - run: ./push-docs.sh

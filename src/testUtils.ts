@@ -4,7 +4,7 @@ import algosdk from "algosdk";
 
 import { Asset } from "./asset";
 import { PactClient } from "./client";
-import { Pool } from "./pool";
+import { Pool, PoolType } from "./pool";
 import { TransactionGroup } from "./transactionGroup";
 
 export const ROOT_ACCOUNT = algosdk.mnemonicToSecretKey(
@@ -29,7 +29,7 @@ export async function createAsset(
   account: algosdk.Account,
   name: string | undefined = "COIN",
   decimals = 6,
-  totalIssuance = 1_000_000,
+  totalIssuance = 100_000_000,
 ): Promise<number> {
   const suggestedParams = await algod.getTransactionParams().do();
 
@@ -55,24 +55,68 @@ export async function createAsset(
   return ptx["asset-index"];
 }
 
-export async function deployContract(
+export function deployExchangeContract(
   account: algosdk.Account,
   primaryAssetIndex: number,
   secondaryAssetIndex: number,
   options: {
     feeBps?: number;
   } = {},
+) {
+  return deployContract(
+    account,
+    "CONSTANT_PRODUCT",
+    primaryAssetIndex,
+    secondaryAssetIndex,
+    options,
+  );
+}
+
+export function deployStableswapContract(
+  account: algosdk.Account,
+  primaryAssetIndex: number,
+  secondaryAssetIndex: number,
+  options: {
+    feeBps?: number;
+    pactFeeBps?: number;
+    amplifier?: number;
+  } = {},
+) {
+  return deployContract(
+    account,
+    "STABLESWAP",
+    primaryAssetIndex,
+    secondaryAssetIndex,
+    options,
+  );
+}
+
+export function deployContract(
+  account: algosdk.Account,
+  poolType: PoolType,
+  primaryAssetIndex: number,
+  secondaryAssetIndex: number,
+  options: {
+    feeBps?: number;
+    pactFeeBps?: number;
+    amplifier?: number;
+  } = {},
 ): Promise<number> {
   const mnemonic = algosdk.secretKeyToMnemonic(account.sk);
+
   const command = `
     cd algorand-testbed && \\
     ALGOD_URL=http://localhost:8787 \\
     ALGOD_TOKEN=8cec5f4261a2b5ad831a8a701560892cabfe1f0ca00a22a37dee3e1266d726e3 \\
     DEPLOYER_MNEMONIC="${mnemonic}" \\
     poetry run python scripts/deploy.py \\
+   --contract-type=${poolType.toLowerCase()} \\
    --primary_asset_id=${primaryAssetIndex} \\
    --secondary_asset_id=${secondaryAssetIndex} \\
-   --fee_bps=${options.feeBps ?? 30}
+   --fee_bps=${options.feeBps ?? 30} \\
+   --pact_fee_bps=${options.pactFeeBps ?? 30} \\
+   --amplifier=${(options.amplifier ?? 80) * 1000} \\
+   --admin_and_treasury_address=${account.addr}
    `;
 
   return new Promise((resolve, reject) => {
@@ -146,7 +190,9 @@ export type TestBed = {
 
 export async function makeFreshTestBed(
   options: {
+    poolType?: PoolType;
     feeBps?: number;
+    amplifier?: number;
   } = {},
 ): Promise<TestBed> {
   const account = await newAccount();
@@ -156,9 +202,17 @@ export async function makeFreshTestBed(
   const coinIndex = await createAsset(account);
   const coin = await pact.fetchAsset(coinIndex);
 
-  const appId = await deployContract(account, algo.index, coin.index, {
-    feeBps: options.feeBps,
-  });
+  const poolType = options.poolType ?? "CONSTANT_PRODUCT";
+  const appId = await deployContract(
+    account,
+    poolType,
+    algo.index,
+    coin.index,
+    {
+      feeBps: options.feeBps,
+      amplifier: options.amplifier,
+    },
+  );
   const pool = await pact.fetchPoolById(appId);
 
   return { account, pact, algo, coin, pool };
