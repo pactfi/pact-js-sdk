@@ -480,6 +480,7 @@ describe("constant product swap", () => {
       asset: pool.primaryAsset,
       slippagePct: 10,
     });
+    expect(swap.effect.amplifier).toBe(0);
     await testSwap(swap, account);
   });
 });
@@ -584,6 +585,7 @@ describe("stable swap", () => {
     });
 
     expect(swap.effect.amountReceived + swap.effect.fee).toBe(999);
+    expect(swap.effect.amplifier).toBe(200);
 
     await testSwap(swap, account);
   });
@@ -617,6 +619,7 @@ describe("stable swap", () => {
       asset: pool.primaryAsset,
       slippagePct: 10,
     });
+
     await testSwap(swap, account);
   });
 });

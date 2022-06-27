@@ -386,7 +386,7 @@ describe("Stableswap pool", () => {
       account,
       coinAIndex,
       coinBIndex,
-      { amplifier: 20 },
+      { amplifier: 20, feeBps: 60 },
     );
     const pool = await pact.fetchPoolById(appId);
 
@@ -517,7 +517,7 @@ describe("Stableswap pool", () => {
       account,
       coinAIndex,
       coinBIndex,
-      { feeBps: 5, pactFeeBps: 5, amplifier: 5 },
+      { feeBps: 10, pactFeeBps: 5, amplifier: 5 },
     );
     const pool = await pact.fetchPoolById(appId);
 
