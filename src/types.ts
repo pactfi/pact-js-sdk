@@ -42,4 +42,14 @@ export interface SwapCalculator {
     liqB: bigint,
     amountReceived: bigint,
   ): bigint;
+
+  /**
+   * Returns amount of liquidity tokens that are going to be minted when adding liquidity.
+   *
+   * @param addedLiqA Amount of primary asset to add to the pool.
+   * @param addedLiqB Amount of secondary asset to add to the pool.
+   *
+   * @returns Amount of liquidity tokens that will be minted and given to user.
+   */
+  getMintedLiquidityTokens(addedLiqA: bigint, addedLiqB: bigint): bigint;
 }

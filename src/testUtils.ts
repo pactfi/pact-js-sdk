@@ -114,7 +114,7 @@ export function deployContract(
    --primary_asset_id=${primaryAssetIndex} \\
    --secondary_asset_id=${secondaryAssetIndex} \\
    --fee_bps=${options.feeBps ?? 30} \\
-   --pact_fee_bps=${options.pactFeeBps ?? 30} \\
+   --pact_fee_bps=${options.pactFeeBps ?? 0} \\
    --amplifier=${(options.amplifier ?? 80) * 1000} \\
    --admin_and_treasury_address=${account.addr}
    `;

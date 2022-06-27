@@ -8,6 +8,7 @@
 import algosdk from "algosdk";
 import D from "decimal.js";
 
+import { LiquidityAddition } from "./addLiquidity";
 import { listPools } from "./api";
 import { Asset, fetchAssetByIndex } from "./asset";
 import { encode, encodeArray } from "./encoding";
@@ -23,14 +24,16 @@ import { TransactionGroup } from "./transactionGroup";
  *
  */
 export type AddLiquidityOptions = {
-  /** Account address that will deposit the primary and secondary assets and receive the LP token. */
-  address: string;
-
   /** The amount of primary asset to deposit. */
   primaryAssetAmount: number;
 
   /** The amount of secondary asset to deposit. */
   secondaryAssetAmount: number;
+};
+
+export type AddLiquidityTxOptions = AddLiquidityOptions & {
+  /** Account address that will deposit the primary and secondary assets and receive the LP token. */
+  address: string;
 
   /** An optional note that can be added to the application ADDLIQ transaction. */
   note?: Uint8Array;
@@ -315,7 +318,7 @@ export class Pool {
         feeBps: internalState.FEE_BPS,
       };
     }
-    this.feeBps = internalState.FEE_BPS + (internalState.PACT_FEE_BPS ?? 0);
+    this.feeBps = internalState.FEE_BPS;
     this.calculator = new PoolCalculator(this);
     this.state = this.parseInternalState(this.internalState);
   }
@@ -365,12 +368,29 @@ export class Pool {
   }
 
   /**
+   * Creates a new LiquidityAddition instance. Use this, if you want to inspect the effect of adding the liquidity.
+   * If you don't care about effect, then you can use [[Pool.prepareAddLiquidityTxGroup]] instead.
+   *
+   * @param options Options for adding the liquidity.
+   *
+   * @returns A new LiquidityAddition object.
+   */
+  prepareAddLiquidity(options: AddLiquidityOptions): LiquidityAddition {
+    return new LiquidityAddition(
+      this,
+      options.primaryAssetAmount,
+      options.secondaryAssetAmount,
+    );
+  }
+
+  /**
     Prepares a [[TransactionGroup]] for adding liquidity to the pool. See [[Pool.buildAddLiquidityTxs]] for details.
    *
    * @param options Options for adding the liquidity.
+   *
    * @returns A transaction group that when executed will add liquidity to the pool.
    */
-  async prepareAddLiquidityTxGroup(options: AddLiquidityOptions) {
+  async prepareAddLiquidityTxGroup(options: AddLiquidityTxOptions) {
     const suggestedParams = await this.algod.getTransactionParams().do();
     const txs = this.buildAddLiquidityTxs({ ...options, suggestedParams });
     return new TransactionGroup(txs);
@@ -394,7 +414,7 @@ export class Pool {
    *
    * @returns Array of transactions to add the liquidity.
    */
-  buildAddLiquidityTxs(options: AddLiquidityOptions & SuggestedParamsOption) {
+  buildAddLiquidityTxs(options: AddLiquidityTxOptions & SuggestedParamsOption) {
     let txs: algosdk.Transaction[] = [];
     let { primaryAssetAmount, secondaryAssetAmount } = options;
 
