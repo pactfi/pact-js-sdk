@@ -20,7 +20,7 @@ export class StableswapCalculator implements SwapCalculator {
   getAmplifier(): bigint {
     // Linear interpolation based on current timestamp.
     const params = this.stableswapParams;
-    const now = Date.now();
+    const now = Date.now() / 1000; // Convert miliseconds to seconds.
     const dt = params.futureATime - params.initialATime;
     const dv = params.futureA - params.initialA;
     if (!dt || !dv) {

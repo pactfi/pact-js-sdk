@@ -516,22 +516,22 @@ describe("stable swap", () => {
     expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(933n);
     expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1084n);
 
-    jest.setSystemTime(initialTime + 100);
+    jest.setSystemTime((initialTime + 100) * 1000);
     expect(swapCalculator.getAmplifier()).toBe(11n * aPrecision);
     expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(938n);
     expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1077n);
 
-    jest.setSystemTime(initialTime + 500);
+    jest.setSystemTime((initialTime + 500) * 1000);
     expect(swapCalculator.getAmplifier()).toBe(15n * aPrecision);
     expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(952n);
     expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1056n);
 
-    jest.setSystemTime(initialTime + 1000);
+    jest.setSystemTime((initialTime + 1000) * 1000);
     expect(swapCalculator.getAmplifier()).toBe(20n * aPrecision);
     expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(962n);
     expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1043n);
 
-    jest.setSystemTime(initialTime + 2000);
+    jest.setSystemTime((initialTime + 2000) * 1000);
     expect(swapCalculator.getAmplifier()).toBe(20n * aPrecision);
 
     // Let's decrease the amplifier.
@@ -545,22 +545,22 @@ describe("stable swap", () => {
     expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(962n);
     expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1043n);
 
-    jest.setSystemTime(initialTime + 100);
+    jest.setSystemTime((initialTime + 100) * 1000);
     expect(swapCalculator.getAmplifier()).toBe(19750n);
     expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(962n);
     expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1044n);
 
-    jest.setSystemTime(initialTime + 1000);
+    jest.setSystemTime((initialTime + 1000) * 1000);
     expect(swapCalculator.getAmplifier()).toBe(17500n);
     expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(957n);
     expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1050n);
 
-    jest.setSystemTime(initialTime + 2000);
+    jest.setSystemTime((initialTime + 2000) * 1000);
     expect(swapCalculator.getAmplifier()).toBe(15n * aPrecision);
     expect(swapCalculator.getSwapGrossAmountReceived(...swapArgs)).toBe(952n);
     expect(swapCalculator.getSwapAmountDeposited(...swapArgs)).toBe(1056n);
 
-    jest.setSystemTime(initialTime + 3000);
+    jest.setSystemTime((initialTime + 3000) * 1000);
     expect(swapCalculator.getAmplifier()).toBe(15n * aPrecision);
 
     params.futureA = 100 * 1000;
