@@ -120,7 +120,7 @@ export function getAddLiquidityFees(
     precision,
   );
 
-  // Calculate the invariant as if all tokens were added to the pool
+  // Calculate the invariant as if all tokens were added to the pool.
   const nextD = getInvariant(
     updatedTotals[0],
     updatedTotals[1],

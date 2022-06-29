@@ -15,7 +15,12 @@ import { encode, encodeArray } from "./encoding";
 import { PactSdkError } from "./exceptions";
 import { isqrt } from "./isqrt";
 import { PoolCalculator } from "./poolCalculator";
-import { AppInternalState, PoolState, parseGlobalPoolState } from "./poolState";
+import {
+  AppInternalState,
+  PoolState,
+  getPoolTypeFromInternalState,
+  parseGlobalPoolState,
+} from "./poolState";
 import { Swap } from "./swap";
 import { TransactionGroup } from "./transactionGroup";
 
@@ -208,6 +213,7 @@ export async function getAppIdsFromAssets(
 
 export type ConstantProductPoolParams = {
   feeBps: number;
+  pactFeeBps: number;
 };
 
 export type StableswapPoolParams = {
@@ -261,19 +267,32 @@ export class Pool {
    */
   internalState: AppInternalState;
 
-  /** Contains the code to do the math behind the pool. */
+  /**
+   * Contains the code to do the math behind the pool.
+   */
   calculator: PoolCalculator;
 
-  /** Contains the current state of the pool. */
+  /**
+   * Contains the current state of the pool.
+   */
   state: PoolState;
 
-  /** Different pool types use different formulas for making swaps. */
+  /**
+   * Different pool types use different formulas for making swaps.
+   */
   poolType: PoolType;
 
   params: ConstantProductPoolParams | StableswapPoolParams;
 
-  /** The fee in basis points for swaps trading on the pool. */
+  /**
+   * The fee in basis points for swaps trading on the pool.
+   */
   feeBps: number;
+
+  /**
+   * The version of the contract. May be 0 for some old pools which don't expose the version in the global state.
+   */
+  version: number;
 
   /**
    * Constructs a new pool.
@@ -301,11 +320,17 @@ export class Pool {
     this.liquidityAsset = liquidityAsset;
     this.internalState = internalState;
 
-    if (internalState.INITIAL_A !== undefined) {
-      this.poolType = "STABLESWAP";
+    this.poolType = getPoolTypeFromInternalState(internalState);
+
+    if (this.poolType === "CONSTANT_PRODUCT") {
       this.params = {
         feeBps: internalState.FEE_BPS,
-        pactFeeBps: internalState.PACT_FEE_BPS,
+        pactFeeBps: internalState.PACT_FEE_BPS ?? 0,
+      };
+    } else if (this.poolType === "STABLESWAP") {
+      this.params = {
+        feeBps: internalState.FEE_BPS,
+        pactFeeBps: internalState.PACT_FEE_BPS ?? 0,
         initialA: internalState.INITIAL_A,
         initialATime: internalState.INITIAL_A_TIME,
         futureA: internalState.FUTURE_A,
@@ -313,14 +338,13 @@ export class Pool {
         precision: internalState.PRECISION,
       };
     } else {
-      this.poolType = "CONSTANT_PRODUCT";
-      this.params = {
-        feeBps: internalState.FEE_BPS,
-      };
+      throw new PactSdkError(`Unknown pool type "${this.poolType}".`);
     }
+
     this.feeBps = internalState.FEE_BPS;
     this.calculator = new PoolCalculator(this);
     this.state = this.parseInternalState(this.internalState);
+    this.version = internalState.VERSION ?? 0;
   }
 
   /**

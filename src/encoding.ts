@@ -35,3 +35,11 @@ export function decodeUint64Array(data: string): number[] {
   }
   return numbers;
 }
+
+export function decodeStringFromGlobalState(encoded: string) {
+  return decode(Buffer.from(encoded, "base64"));
+}
+
+export function decodeAddressFromGlobalState(encoded: string) {
+  return algosdk.encodeAddress(Buffer.from(Buffer.from(encoded, "base64")));
+}
