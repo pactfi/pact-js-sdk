@@ -351,7 +351,7 @@ export class StableswapCalculator implements SwapCalculator {
     const precision = BigInt(this.stableswapParams.precision);
     const amplifier = this.getAmplifier();
 
-    return getStableswapMintedLiquidityTokens(
+    const mintedTokens = getStableswapMintedLiquidityTokens(
       addedLiqA,
       addedLiqB,
       BigInt(this.pool.state.totalPrimary),
@@ -361,5 +361,18 @@ export class StableswapCalculator implements SwapCalculator {
       precision,
       BigInt(this.pool.feeBps),
     );
+
+    if (mintedTokens < 0) {
+      /**
+       * Add liquidity fee is always taken from both assets, even if the user provided only one asset as the liquidity. In this case, the fee is taken from current pool's liquidity.
+       * If the current liquidity is not high enough to cover the fee, the contract will fail.
+       * In the SDK calculations this results in mintedTokens < 0.
+       */
+      throw new PactSdkError(
+        "Pool liquidity too low to cover add liquidity fee.",
+      );
+    }
+
+    return mintedTokens;
   }
 }

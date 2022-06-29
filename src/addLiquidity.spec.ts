@@ -185,4 +185,22 @@ describe("stableswap add liquidity", () => {
 
     expect(liquidityAddition.effect.bonusPct).toBeGreaterThan(0);
   });
+
+  it("pool liquidity too low to cover fee", async () => {
+    const { account, pool } = await makeFreshTestBed({
+      poolType: "STABLESWAP",
+      feeBps: 1000,
+    });
+
+    await addLiqudity(account, pool, 1000, 100_000);
+
+    const [primaryAssetAmount, secondaryAssetAmount] = [0, 1_000_000_000];
+
+    expect(() =>
+      pool.prepareAddLiquidity({
+        primaryAssetAmount,
+        secondaryAssetAmount,
+      }),
+    ).toThrow("Pool liquidity too low to cover add liquidity fee.");
+  });
 });
