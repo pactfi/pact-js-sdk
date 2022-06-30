@@ -8,13 +8,19 @@
 import algosdk from "algosdk";
 import D from "decimal.js";
 
+import { LiquidityAddition } from "./addLiquidity";
 import { listPools } from "./api";
 import { Asset, fetchAssetByIndex } from "./asset";
 import { encode, encodeArray } from "./encoding";
 import { PactSdkError } from "./exceptions";
 import { isqrt } from "./isqrt";
 import { PoolCalculator } from "./poolCalculator";
-import { AppInternalState, PoolState, parseGlobalPoolState } from "./poolState";
+import {
+  AppInternalState,
+  PoolState,
+  getPoolTypeFromInternalState,
+  parseGlobalPoolState,
+} from "./poolState";
 import { Swap } from "./swap";
 import { TransactionGroup } from "./transactionGroup";
 
@@ -23,14 +29,16 @@ import { TransactionGroup } from "./transactionGroup";
  *
  */
 export type AddLiquidityOptions = {
-  /** Account address that will deposit the primary and secondary assets and receive the LP token. */
-  address: string;
-
   /** The amount of primary asset to deposit. */
   primaryAssetAmount: number;
 
   /** The amount of secondary asset to deposit. */
   secondaryAssetAmount: number;
+};
+
+export type AddLiquidityTxOptions = AddLiquidityOptions & {
+  /** Account address that will deposit the primary and secondary assets and receive the LP token. */
+  address: string;
 
   /** An optional note that can be added to the application ADDLIQ transaction. */
   note?: Uint8Array;
@@ -205,6 +213,7 @@ export async function getAppIdsFromAssets(
 
 export type ConstantProductPoolParams = {
   feeBps: number;
+  pactFeeBps: number;
 };
 
 export type StableswapPoolParams = {
@@ -258,19 +267,32 @@ export class Pool {
    */
   internalState: AppInternalState;
 
-  /** Contains the code to do the math behind the pool. */
+  /**
+   * Contains the code to do the math behind the pool.
+   */
   calculator: PoolCalculator;
 
-  /** Contains the current state of the pool. */
+  /**
+   * Contains the current state of the pool.
+   */
   state: PoolState;
 
-  /** Different pool types use different formulas for making swaps. */
+  /**
+   * Different pool types use different formulas for making swaps.
+   */
   poolType: PoolType;
 
   params: ConstantProductPoolParams | StableswapPoolParams;
 
-  /** The fee in basis points for swaps trading on the pool. */
+  /**
+   * The fee in basis points for swaps trading on the pool.
+   */
   feeBps: number;
+
+  /**
+   * The version of the contract. May be 0 for some old pools which don't expose the version in the global state.
+   */
+  version: number;
 
   /**
    * Constructs a new pool.
@@ -298,11 +320,17 @@ export class Pool {
     this.liquidityAsset = liquidityAsset;
     this.internalState = internalState;
 
-    if (internalState.INITIAL_A !== undefined) {
-      this.poolType = "STABLESWAP";
+    this.poolType = getPoolTypeFromInternalState(internalState);
+
+    if (this.poolType === "CONSTANT_PRODUCT") {
       this.params = {
         feeBps: internalState.FEE_BPS,
-        pactFeeBps: internalState.PACT_FEE_BPS,
+        pactFeeBps: internalState.PACT_FEE_BPS ?? 0,
+      };
+    } else if (this.poolType === "STABLESWAP") {
+      this.params = {
+        feeBps: internalState.FEE_BPS,
+        pactFeeBps: internalState.PACT_FEE_BPS ?? 0,
         initialA: internalState.INITIAL_A,
         initialATime: internalState.INITIAL_A_TIME,
         futureA: internalState.FUTURE_A,
@@ -310,14 +338,13 @@ export class Pool {
         precision: internalState.PRECISION,
       };
     } else {
-      this.poolType = "CONSTANT_PRODUCT";
-      this.params = {
-        feeBps: internalState.FEE_BPS,
-      };
+      throw new PactSdkError(`Unknown pool type "${this.poolType}".`);
     }
-    this.feeBps = internalState.FEE_BPS + (internalState.PACT_FEE_BPS ?? 0);
+
+    this.feeBps = internalState.FEE_BPS;
     this.calculator = new PoolCalculator(this);
     this.state = this.parseInternalState(this.internalState);
+    this.version = internalState.VERSION ?? 0;
   }
 
   /**
@@ -365,12 +392,29 @@ export class Pool {
   }
 
   /**
+   * Creates a new LiquidityAddition instance. Use this, if you want to inspect the effect of adding the liquidity.
+   * If you don't care about effect, then you can use [[Pool.prepareAddLiquidityTxGroup]] instead.
+   *
+   * @param options Options for adding the liquidity.
+   *
+   * @returns A new LiquidityAddition object.
+   */
+  prepareAddLiquidity(options: AddLiquidityOptions): LiquidityAddition {
+    return new LiquidityAddition(
+      this,
+      options.primaryAssetAmount,
+      options.secondaryAssetAmount,
+    );
+  }
+
+  /**
     Prepares a [[TransactionGroup]] for adding liquidity to the pool. See [[Pool.buildAddLiquidityTxs]] for details.
    *
    * @param options Options for adding the liquidity.
+   *
    * @returns A transaction group that when executed will add liquidity to the pool.
    */
-  async prepareAddLiquidityTxGroup(options: AddLiquidityOptions) {
+  async prepareAddLiquidityTxGroup(options: AddLiquidityTxOptions) {
     const suggestedParams = await this.algod.getTransactionParams().do();
     const txs = this.buildAddLiquidityTxs({ ...options, suggestedParams });
     return new TransactionGroup(txs);
@@ -394,7 +438,7 @@ export class Pool {
    *
    * @returns Array of transactions to add the liquidity.
    */
-  buildAddLiquidityTxs(options: AddLiquidityOptions & SuggestedParamsOption) {
+  buildAddLiquidityTxs(options: AddLiquidityTxOptions & SuggestedParamsOption) {
     let txs: algosdk.Transaction[] = [];
     let { primaryAssetAmount, secondaryAssetAmount } = options;
 

@@ -217,6 +217,36 @@ describe("Generic pool", () => {
 });
 
 describe("Constant product pool", () => {
+  it("parsing state", async () => {
+    const testBed = await makeFreshTestBed({ poolType: "CONSTANT_PRODUCT" });
+    const pact = new PactClient(algod);
+
+    const pool = await pact.fetchPoolById(testBed.pool.appId);
+
+    expect(pool.primaryAsset.index).toBe(testBed.algo.index);
+    expect(pool.secondaryAsset.index).toBe(testBed.coin.index);
+
+    expect(pool.poolType).toBe("CONSTANT_PRODUCT");
+    expect(pool.version).toBe(2);
+
+    expect(pool.internalState).toEqual({
+      A: 0,
+      ADMIN: testBed.account.addr,
+      ASSET_A: pool.primaryAsset.index,
+      ASSET_B: pool.secondaryAsset.index,
+      LTID: pool.liquidityAsset.index,
+      B: 0,
+      CONTRACT_NAME: "PACT AMM",
+      FEE_BPS: pool.feeBps,
+      L: 0,
+      PACT_FEE_BPS: 0,
+      PRIMARY_FEES: 0,
+      SECONDARY_FEES: 0,
+      TREASURY: testBed.account.addr,
+      VERSION: 2,
+    });
+  });
+
   it("e2e scenario", async () => {
     const { account, algo, coin, pool } = await makeFreshTestBed({
       poolType: "CONSTANT_PRODUCT",
@@ -375,6 +405,43 @@ describe("Constant product pool", () => {
 });
 
 describe("Stableswap pool", () => {
+  it("parsing state", async () => {
+    const testBed = await makeFreshTestBed({ poolType: "STABLESWAP" });
+    const pact = new PactClient(algod);
+
+    const pool = await pact.fetchPoolById(testBed.pool.appId);
+
+    expect(pool.primaryAsset.index).toBe(testBed.algo.index);
+    expect(pool.secondaryAsset.index).toBe(testBed.coin.index);
+
+    expect(pool.poolType).toBe("STABLESWAP");
+    expect(pool.version).toBe(1);
+
+    const timestamp = pool.internalState.INITIAL_A_TIME;
+
+    expect(pool.internalState).toEqual({
+      A: 0,
+      ADMIN: testBed.account.addr,
+      ASSET_A: pool.primaryAsset.index,
+      ASSET_B: pool.secondaryAsset.index,
+      LTID: pool.liquidityAsset.index,
+      B: 0,
+      CONTRACT_NAME: "[SI] PACT AMM",
+      FEE_BPS: pool.feeBps,
+      L: 0,
+      PACT_FEE_BPS: 0,
+      PRIMARY_FEES: 0,
+      SECONDARY_FEES: 0,
+      TREASURY: testBed.account.addr,
+      VERSION: 1,
+      INITIAL_A: 80000,
+      INITIAL_A_TIME: timestamp,
+      FUTURE_A: 80000,
+      FUTURE_A_TIME: timestamp,
+      PRECISION: 1000,
+    });
+  });
+
   it("e2e scenario", async () => {
     const account = await newAccount();
     const pact = new PactClient(algod);
@@ -386,7 +453,7 @@ describe("Stableswap pool", () => {
       account,
       coinAIndex,
       coinBIndex,
-      { amplifier: 20 },
+      { amplifier: 20, feeBps: 60 },
     );
     const pool = await pact.fetchPoolById(appId);
 
@@ -517,7 +584,7 @@ describe("Stableswap pool", () => {
       account,
       coinAIndex,
       coinBIndex,
-      { feeBps: 5, pactFeeBps: 5, amplifier: 5 },
+      { feeBps: 10, pactFeeBps: 5, amplifier: 5 },
     );
     const pool = await pact.fetchPoolById(appId);
 

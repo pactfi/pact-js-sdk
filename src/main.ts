@@ -1,5 +1,6 @@
 export * from "./client";
 export * from "./transactionGroup";
+export * from "./addLiquidity";
 export * from "./swap";
 export * from "./asset";
 export * from "./pool";
