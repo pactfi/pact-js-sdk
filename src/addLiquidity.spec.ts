@@ -2,7 +2,7 @@ import algosdk from "algosdk";
 
 import { LiquidityAddition } from "./addLiquidity";
 import { Pool, PoolType } from "./pool";
-import { addLiqudity, makeFreshTestBed, signAndSend } from "./testUtils";
+import { addLiquidity, makeFreshTestBed, signAndSend } from "./testUtils";
 
 async function testAddLiquidity(
   liquidityAddition: LiquidityAddition,
@@ -92,7 +92,7 @@ function swapTestCase(poolType: PoolType) {
       poolType: poolType,
     });
 
-    await addLiqudity(account, pool, 50_000, 60_000);
+    await addLiquidity(account, pool, 50_000, 60_000);
 
     const [primaryAssetAmount, secondaryAssetAmount] = [10_000, 10_000];
 
@@ -109,7 +109,7 @@ function swapTestCase(poolType: PoolType) {
       poolType: poolType,
     });
 
-    await addLiqudity(account, pool, 50_000, 60_000);
+    await addLiquidity(account, pool, 50_000, 60_000);
 
     const [primaryAssetAmount, secondaryAssetAmount] = [30_000, 10_000];
 
@@ -134,7 +134,7 @@ describe("stableswap add liquidity", () => {
       poolType: "STABLESWAP",
     });
 
-    await addLiqudity(account, pool, 50_000, 60_000);
+    await addLiquidity(account, pool, 50_000, 60_000);
 
     const [primaryAssetAmount, secondaryAssetAmount] = [30_000, 0];
 
@@ -151,7 +151,7 @@ describe("stableswap add liquidity", () => {
       poolType: "STABLESWAP",
     });
 
-    await addLiqudity(account, pool, 50_000, 60_000);
+    await addLiquidity(account, pool, 50_000, 60_000);
 
     const [primaryAssetAmount, secondaryAssetAmount] = [0, 30_000];
 
@@ -171,7 +171,7 @@ describe("stableswap add liquidity", () => {
       poolType: "STABLESWAP",
     });
 
-    await addLiqudity(account, pool, 10_000, 60_000);
+    await addLiquidity(account, pool, 10_000, 60_000);
 
     const [primaryAssetAmount, secondaryAssetAmount] = [50_000, 0];
 
@@ -192,7 +192,7 @@ describe("stableswap add liquidity", () => {
       feeBps: 1000,
     });
 
-    await addLiqudity(account, pool, 1000, 100_000);
+    await addLiquidity(account, pool, 1000, 100_000);
 
     const [primaryAssetAmount, secondaryAssetAmount] = [0, 1_000_000_000];
 

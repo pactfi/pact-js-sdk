@@ -12,6 +12,21 @@ function dAbs(value: bigint) {
   return value >= 0 ? value : -value;
 }
 
+/**
+ * To calculate the pool invariant, a Newton-Raphson method is used in both - the SDK and the smart contract.
+ * Algorand has a limit of the number of operations available in a single app call. To increase the limit, an additional empty inner transaction have to be created. Each extra tx increases tx fee. This functions calculates the fee needed for a swap transaction.
+ *
+ * @param invariantIterations Number of iterations of Newton-Raphson interpolation.
+ *
+ * @returns The required fee.
+ */
+export function getSwapTxFee(invariantIterations: number): number {
+  const expectedInnerTxCount = Math.ceil(
+    (invariantIterations * 369 + 600) / 700,
+  );
+  return (expectedInnerTxCount + 2) * 1000;
+}
+
 export function getStableswapMintedLiquidityTokens(
   addedPrimary: bigint,
   addedSecondary: bigint,
@@ -45,7 +60,7 @@ export function getStableswapMintedLiquidityTokens(
     amplifier,
     precision,
   );
-  const nextD = getInvariant(
+  const [nextD] = getInvariant(
     updatedTotals[0] - fees[0],
     updatedTotals[1] - fees[1],
     amplifier,
@@ -87,7 +102,7 @@ export function getAddLiquidityBonusPct(
     updatedTotals[1] - fees[1],
   ];
 
-  const finalD = getInvariant(
+  const [finalD] = getInvariant(
     finalBalances[0],
     finalBalances[1],
     amplifier,
@@ -113,7 +128,7 @@ export function getAddLiquidityFees(
 ): [[bigint, bigint], bigint] {
   const n = 2n;
 
-  const initialD = getInvariant(
+  const [initialD] = getInvariant(
     initialTotals[0],
     initialTotals[1],
     amplifier,
@@ -121,7 +136,7 @@ export function getAddLiquidityFees(
   );
 
   // Calculate the invariant as if all tokens were added to the pool.
-  const nextD = getInvariant(
+  const [nextD] = getInvariant(
     updatedTotals[0],
     updatedTotals[1],
     amplifier,
@@ -143,16 +158,21 @@ export function getAddLiquidityFees(
   return [fees, initialD];
 }
 
+/**
+ * Uses a Newton-Raphson method to calculate the pool invariant.
+ *
+ * @returns A tuple of invariant and number of iterations required to calculate the invariant.
+ */
 export function getInvariant(
   liqA: bigint,
   liqB: bigint,
   amp: bigint,
   precision: bigint,
-): bigint {
+): [bigint, number] {
   const tokens_total = liqA + liqB;
   const S = tokens_total;
   if (S === 0n) {
-    return S;
+    return [S, 0];
   }
 
   let D = S;
@@ -162,9 +182,10 @@ export function getInvariant(
   let Dprev = D;
   while (i < 64) {
     i += 1;
-    let D_P = D;
-    D_P = (D_P * D) / (liqA * 2n);
-    D_P = (D_P * D) / (liqB * 2n);
+
+    let D_P = D * D * D;
+    D_P /= liqA * liqB * 4n;
+
     Dprev = D;
     const numerator = D * ((Ann * S) / precision + D_P * 2n);
     const divisor = ((Ann - precision) * D) / precision + 3n * D_P;
@@ -180,7 +201,7 @@ export function getInvariant(
   if (i === 64) {
     throw new ConvergenceError(`Didn't converge Dprev=${Dprev}, D=${D}`);
   }
-  return D;
+  return [D, i];
 }
 
 export function getNewLiq(
@@ -235,6 +256,9 @@ export function getAmplifier(
  * An implementation of a math behind stableswap pools.
  */
 export class StableswapCalculator implements SwapCalculator {
+  /** Keeps the amount of iteration used to calculate invariant in the last call to getSwapGrossAmountReceived or getSwapAmountDeposited. Needed to calculate transaction fee. */
+  invariantIterations = 0;
+
   constructor(public pool: Pool) {}
 
   get stableswapParams() {
@@ -300,6 +324,7 @@ export class StableswapCalculator implements SwapCalculator {
         liqB,
         liqA,
         amountDeposited,
+        false,
       );
       if (amountReceived === 0n) {
         return this._getPrice(decimalLiqA, decimalLiqB, retries - 1);
@@ -317,10 +342,20 @@ export class StableswapCalculator implements SwapCalculator {
     liqA: bigint,
     liqB: bigint,
     amountDeposited: bigint,
+    saveIterations = true,
   ): bigint {
     const precision = BigInt(this.stableswapParams.precision);
     const amplifier = this.getAmplifier();
-    const invariant = getInvariant(liqA, liqB, amplifier, precision);
+
+    const [invariant, invariantIterations] = getInvariant(
+      liqA,
+      liqB,
+      amplifier,
+      precision,
+    );
+    if (saveIterations) {
+      this.invariantIterations = invariantIterations;
+    }
     const newLiqB = getNewLiq(
       liqA + amountDeposited,
       amplifier,
@@ -334,10 +369,19 @@ export class StableswapCalculator implements SwapCalculator {
     liqA: bigint,
     liqB: bigint,
     grossAmountReceived: bigint,
+    saveIterations = true,
   ): bigint {
     const precision = BigInt(this.stableswapParams.precision);
     const amplifier = this.getAmplifier();
-    const invariant = getInvariant(liqA, liqB, amplifier, precision);
+    const [invariant, invariantIterations] = getInvariant(
+      liqA,
+      liqB,
+      amplifier,
+      precision,
+    );
+    if (saveIterations) {
+      this.invariantIterations = invariantIterations;
+    }
     const newLiqA = getNewLiq(
       liqB - grossAmountReceived,
       amplifier,

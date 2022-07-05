@@ -1,7 +1,7 @@
 import { Asset } from "./asset";
 import { PactSdkError } from "./exceptions";
 import { Pool } from "./pool";
-import { StableswapCalculator } from "./stableswapCalculator";
+import { StableswapCalculator, getSwapTxFee } from "./stableswapCalculator";
 import { TransactionGroup } from "./transactionGroup";
 
 export class SwapValidationError extends PactSdkError {}
@@ -25,6 +25,7 @@ export type SwapEffect = {
   secondaryAssetPriceImpactPct: number;
   fee: number;
   price: number;
+  txFee: number;
 
   /** Stableswap only. Zero otherwise. */
   amplifier: number;
@@ -173,12 +174,14 @@ export class Swap {
     );
 
     let amplifier = 0;
+    let txFee = 2000;
     const swapCalc = this.pool.calculator.swapCalculator;
 
     if (swapCalc instanceof StableswapCalculator) {
       amplifier =
         Number(swapCalc.getAmplifier()) /
         (this.pool.internalState.PRECISION ?? 1);
+      txFee = getSwapTxFee(swapCalc.invariantIterations);
     }
 
     return {
@@ -205,6 +208,7 @@ export class Swap {
         secondaryLiqChange,
       ),
       fee: Number(calc.getFee(this.assetDeposited, BigInt(amountDeposited))),
+      txFee,
       amplifier,
     };
   }

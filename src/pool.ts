@@ -614,7 +614,7 @@ export class Pool {
     const txn2 = this.makeApplicationNoopTx({
       address,
       suggestedParams,
-      fee: this.poolType === "CONSTANT_PRODUCT" ? 2000 : 7000,
+      fee: swap.effect.txFee,
       args: ["SWAP", swap.effect.minimumAmountReceived],
     });
 

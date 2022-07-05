@@ -141,7 +141,7 @@ export function deployContract(
   });
 }
 
-export async function addLiqudity(
+export async function addLiquidity(
   account: algosdk.Account,
   pool: Pool,
   primaryAssetAmount = 10_000,
