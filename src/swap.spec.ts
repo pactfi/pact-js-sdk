@@ -6,7 +6,7 @@ import { PoolState } from "./poolState";
 import { StableswapCalculator } from "./stableswapCalculator";
 import { Swap } from "./swap";
 import {
-  addLiqudity,
+  addLiquidity,
   algod,
   createAsset,
   deployExchangeContract,
@@ -112,7 +112,7 @@ function swapTestCase(poolType: PoolType) {
       poolType: poolType,
     });
     const [primaryLiq, secondaryLiq, amount] = [10_000, 10_000, 1_000];
-    await addLiqudity(account, pool, primaryLiq, secondaryLiq);
+    await addLiquidity(account, pool, primaryLiq, secondaryLiq);
 
     const swap = pool.prepareSwap({
       amount,
@@ -132,7 +132,7 @@ function swapTestCase(poolType: PoolType) {
       poolType: poolType,
     });
     const [primaryLiq, secondaryLiq, amount] = [20_000, 25_000, 1_000];
-    await addLiqudity(account, pool, primaryLiq, secondaryLiq);
+    await addLiquidity(account, pool, primaryLiq, secondaryLiq);
 
     const swap = pool.prepareSwap({
       amount,
@@ -148,7 +148,7 @@ function swapTestCase(poolType: PoolType) {
       poolType: poolType,
     });
     const [primaryLiq, secondaryLiq, amount] = [20_000, 20_000, 1_000];
-    await addLiqudity(account, pool, primaryLiq, secondaryLiq);
+    await addLiquidity(account, pool, primaryLiq, secondaryLiq);
 
     const swap = pool.prepareSwap({
       amount,
@@ -164,7 +164,7 @@ function swapTestCase(poolType: PoolType) {
       poolType: poolType,
     });
     const [primaryLiq, secondaryLiq, amount] = [25_000, 20_000, 1_000];
-    await addLiqudity(account, pool, primaryLiq, secondaryLiq);
+    await addLiquidity(account, pool, primaryLiq, secondaryLiq);
 
     const swap = pool.prepareSwap({
       amount,
@@ -185,8 +185,8 @@ function swapTestCase(poolType: PoolType) {
     expect(TestBedA.pool.params.feeBps).toBe(10);
     expect(TestBedB.pool.params.feeBps).toBe(2000);
 
-    await addLiqudity(TestBedA.account, TestBedA.pool, 20_000, 20_000);
-    await addLiqudity(TestBedB.account, TestBedB.pool, 20_000, 20_000);
+    await addLiquidity(TestBedA.account, TestBedA.pool, 20_000, 20_000);
+    await addLiquidity(TestBedB.account, TestBedB.pool, 20_000, 20_000);
 
     const swapA = TestBedA.pool.prepareSwap({
       amount: 10_000,
@@ -227,7 +227,7 @@ function swapTestCase(poolType: PoolType) {
     const { account, algo, pool } = await makeFreshTestBed({
       poolType: poolType,
     });
-    await addLiqudity(account, pool, 20_000, 20_000);
+    await addLiquidity(account, pool, 20_000, 20_000);
 
     expect(() =>
       pool.prepareSwap({
@@ -333,7 +333,7 @@ function swapTestCase(poolType: PoolType) {
       poolType: poolType,
     });
     const [primaryLiq, secondaryLiq, amount] = [20_000, 20_000, 1_000];
-    await addLiqudity(account, pool, primaryLiq, secondaryLiq);
+    await addLiquidity(account, pool, primaryLiq, secondaryLiq);
 
     const reversedSwap = pool.prepareSwap({
       amount,
@@ -368,7 +368,7 @@ function swapTestCase(poolType: PoolType) {
       poolType: poolType,
     });
     const [primaryLiq, secondaryLiq, amount] = [15_000, 25_000, 2_000];
-    await addLiqudity(account, pool, primaryLiq, secondaryLiq);
+    await addLiquidity(account, pool, primaryLiq, secondaryLiq);
 
     const reversedSwap = pool.prepareSwap({
       amount,
@@ -398,7 +398,7 @@ function swapTestCase(poolType: PoolType) {
     const { account, algo, pool } = await makeFreshTestBed({
       poolType: poolType,
     });
-    await addLiqudity(account, pool, 25_000, 15_000);
+    await addLiquidity(account, pool, 25_000, 15_000);
 
     const amounts = [20_000, 15_000, 14_990];
     for (const amount of amounts) {
@@ -428,7 +428,7 @@ function swapTestCase(poolType: PoolType) {
       poolType,
     });
     const [primaryLiq, secondaryLiq, amount] = [20_000, 20_000, 1_000];
-    await addLiqudity(account, pool, primaryLiq, secondaryLiq);
+    await addLiquidity(account, pool, primaryLiq, secondaryLiq);
 
     const swap = pool.prepareSwap({
       amount,
@@ -465,7 +465,7 @@ describe("constant product swap", () => {
     const appId = await deployExchangeContract(account, coinAIndex, coinBIndex);
     const pool = await pact.fetchPoolById(appId);
 
-    await addLiqudity(account, pool, 20_000, 20_000);
+    await addLiquidity(account, pool, 20_000, 20_000);
     await pool.updateState();
     expect(pool.state).toEqual({
       primaryAssetPrice: 10, // because different decimal places for both assets.
@@ -576,7 +576,7 @@ describe("stable swap", () => {
       amplifier: 200,
     });
 
-    await addLiqudity(account, pool, 20000, 15000);
+    await addLiquidity(account, pool, 20000, 15000);
 
     const swap = pool.prepareSwap({
       amount: 1000,
@@ -604,7 +604,7 @@ describe("stable swap", () => {
     );
     const pool = await pact.fetchPoolById(appId);
 
-    await addLiqudity(account, pool, 1_000_000, 1_000_000);
+    await addLiquidity(account, pool, 1_000_000, 1_000_000);
     await pool.updateState();
     expect(pool.state).toMatchObject({
       totalLiquidity: 1_000_000,
