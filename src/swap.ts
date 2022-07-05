@@ -1,7 +1,7 @@
 import { Asset } from "./asset";
 import { PactSdkError } from "./exceptions";
 import { Pool } from "./pool";
-import { StableswapCalculator, getSwapTxFee } from "./stableswapCalculator";
+import { StableswapCalculator, getTxFee } from "./stableswapCalculator";
 import { TransactionGroup } from "./transactionGroup";
 
 export class SwapValidationError extends PactSdkError {}
@@ -181,7 +181,7 @@ export class Swap {
       amplifier =
         Number(swapCalc.getAmplifier()) /
         (this.pool.internalState.PRECISION ?? 1);
-      txFee = getSwapTxFee(swapCalc.invariantIterations);
+      txFee = getTxFee(swapCalc.swapInvariantIterations, 1);
     }
 
     return {

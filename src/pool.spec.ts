@@ -198,10 +198,13 @@ describe("Generic pool", () => {
     // Let's go beyond that limit and check what happens.
     const [primaryAssetAmount, secondaryAssetAmount] = [2 ** 40, 2 ** 30];
 
-    const txGroup = await pool.prepareAddLiquidityTxGroup({
-      address: account.addr,
+    const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount,
       secondaryAssetAmount,
+    });
+    const txGroup = await pool.prepareAddLiquidityTxGroup({
+      address: account.addr,
+      liquidityAddition,
     });
 
     // liquidity is split into two chunks, so 6 txs instead of 3.
@@ -264,10 +267,13 @@ describe("Constant product pool", () => {
     await signAndSend(liqOptInTx, account);
 
     // Add liquidity.
-    const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
-      address: account.addr,
+    const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount: 100_000,
       secondaryAssetAmount: 100_000,
+    });
+    const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
+      address: account.addr,
+      liquidityAddition,
     });
     expect(addLiqTxGroup.transactions.length).toBe(3);
     await signAndSend(addLiqTxGroup, account);
@@ -352,10 +358,13 @@ describe("Constant product pool", () => {
     await signAndSend(liqOptInTx, account);
 
     // Add liquidity.
-    const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
-      address: account.addr,
+    const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount: 100_000,
       secondaryAssetAmount: 10 ** 18,
+    });
+    const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
+      address: account.addr,
+      liquidityAddition,
     });
     expect(addLiqTxGroup.transactions.length).toBe(6);
     await signAndSend(addLiqTxGroup, account);
@@ -469,10 +478,13 @@ describe("Stableswap pool", () => {
     await signAndSend(liqOptInTx, account);
 
     // Add liquidity.
-    const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
-      address: account.addr,
+    const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount: 100_000_000,
       secondaryAssetAmount: 100_000_000,
+    });
+    const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
+      address: account.addr,
+      liquidityAddition,
     });
     expect(addLiqTxGroup.transactions.length).toBe(3);
     await signAndSend(addLiqTxGroup, account);

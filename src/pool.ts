@@ -5,7 +5,7 @@
  *
  * @package
  */
-import algosdk from "algosdk";
+import algosdk, { SuggestedParams } from "algosdk";
 import D from "decimal.js";
 
 import { LiquidityAddition } from "./addLiquidity";
@@ -36,9 +36,21 @@ export type AddLiquidityOptions = {
   secondaryAssetAmount: number;
 };
 
-export type AddLiquidityTxOptions = AddLiquidityOptions & {
+export type AddLiquidityTxOptions = {
+  liquidityAddition: LiquidityAddition;
+
   /** Account address that will deposit the primary and secondary assets and receive the LP token. */
   address: string;
+};
+
+export type RawAddLiquidityTxOptions = AddLiquidityOptions & {
+  /** Account address that will deposit the primary and secondary assets and receive the LP token. */
+  address: string;
+
+  /** The transaction fee of the app call. */
+  fee: number;
+
+  suggestedParams: SuggestedParams;
 
   /** An optional note that can be added to the application ADDLIQ transaction. */
   note?: Uint8Array;
@@ -428,7 +440,7 @@ export class Pool {
    * - deposit of asset B
    * - "ADDLIQ" application call to add liquidity with the above deposits
    *
-   * If the pool is empty and the product of both assets is larger then 2**64 then an additional set of 3 transactions is built.
+   * For constant product pools only - if the pool is empty and the product of both assets is larger then 2**64 then an additional set of 3 transactions is built.
    *
    * The initial liquidity must satisfy the expression `sqrt(a * b) - 1000 < 0`.
    *
@@ -439,67 +451,84 @@ export class Pool {
    * @returns Array of transactions to add the liquidity.
    */
   buildAddLiquidityTxs(options: AddLiquidityTxOptions & SuggestedParamsOption) {
-    let txs: algosdk.Transaction[] = [];
-    let { primaryAssetAmount, secondaryAssetAmount } = options;
+    const { liquidityAddition } = options;
+    let initialLiqTxs: algosdk.Transaction[] = [];
+    let { primaryAssetAmount, secondaryAssetAmount } = liquidityAddition;
 
     if (this.calculator.isEmpty) {
-      const aLiq = BigInt(options.primaryAssetAmount);
-      const bLiq = BigInt(options.secondaryAssetAmount);
+      const aLiq = BigInt(primaryAssetAmount);
+      const bLiq = BigInt(secondaryAssetAmount);
       if (isqrt(aLiq * bLiq) - 1000n <= 0) {
         throw new PactSdkError(
           "Initial liquidity must satisfy the expression `sqrt(a * b) - 1000 < 0`",
         );
       }
 
-      // Adding initial liquidity has a limitation that the product of 2 assets must be lower then 2**64. Let's check if we can fit below the limit.
-      const maxProduct = new D(2).pow(new D(64));
-      const product = new D(primaryAssetAmount).mul(secondaryAssetAmount);
-      if (product.gte(maxProduct)) {
-        // Need to split the liquidity into two chunks.
-        const divisor = new D(product).div(maxProduct).sqrt().add(1);
-        const primarySmallAmount = new D(primaryAssetAmount)
-          .div(divisor)
-          .trunc()
-          .toNumber();
-        const secondarySmallAmount = new D(secondaryAssetAmount)
-          .div(divisor)
-          .trunc()
-          .toNumber();
+      if (this.poolType === "CONSTANT_PRODUCT") {
+        // Adding initial liquidity has a limitation that the product of 2 assets must be lower then 2**64. Let's check if we can fit below the limit.
+        const maxProduct = new D(2).pow(new D(64));
+        const product = new D(primaryAssetAmount).mul(secondaryAssetAmount);
+        if (product.gte(maxProduct)) {
+          // Need to split the liquidity into two chunks.
+          const divisor = new D(product).div(maxProduct).sqrt().add(1);
+          const primarySmallAmount = new D(primaryAssetAmount)
+            .div(divisor)
+            .trunc()
+            .toNumber();
+          const secondarySmallAmount = new D(secondaryAssetAmount)
+            .div(divisor)
+            .trunc()
+            .toNumber();
 
-        primaryAssetAmount -= primarySmallAmount;
-        secondaryAssetAmount -= secondarySmallAmount;
+          primaryAssetAmount -= primarySmallAmount;
+          secondaryAssetAmount -= secondarySmallAmount;
 
-        txs = this.buildAddLiquidityTxs({
-          ...options,
-          primaryAssetAmount: primarySmallAmount,
-          secondaryAssetAmount: secondarySmallAmount,
-          note: encode("Initial add liquidity"),
-        });
+          initialLiqTxs = this.buildRawAddLiquidityTxs({
+            address: options.address,
+            fee: liquidityAddition.effect.txFee,
+            primaryAssetAmount: primarySmallAmount,
+            secondaryAssetAmount: secondarySmallAmount,
+            suggestedParams: options.suggestedParams,
+            note: encode("Initial add liquidity"),
+          });
+        }
       }
     }
 
+    const txs = this.buildRawAddLiquidityTxs({
+      address: options.address,
+      fee: liquidityAddition.effect.txFee,
+      primaryAssetAmount,
+      secondaryAssetAmount,
+      suggestedParams: options.suggestedParams,
+    });
+
+    return [...initialLiqTxs, ...txs];
+  }
+
+  private buildRawAddLiquidityTxs(options: RawAddLiquidityTxOptions) {
     const tx1 = this.makeDepositTx({
       address: options.address,
       asset: this.primaryAsset,
-      amount: primaryAssetAmount,
+      amount: options.primaryAssetAmount,
       suggestedParams: options.suggestedParams,
     });
     const tx2 = this.makeDepositTx({
       address: options.address,
       asset: this.secondaryAsset,
-      amount: secondaryAssetAmount,
+      amount: options.secondaryAssetAmount,
       suggestedParams: options.suggestedParams,
     });
     const tx3 = this.makeApplicationNoopTx({
       address: options.address,
       suggestedParams: options.suggestedParams,
-      fee: this.poolType === "CONSTANT_PRODUCT" ? 3000 : 7000,
+      fee: options.fee,
       args: ["ADDLIQ", 0],
       extraAsset: this.liquidityAsset,
       note: options.note,
     });
 
-    return [...txs, tx1, tx2, tx3];
+    return [tx1, tx2, tx3];
   }
 
   /**

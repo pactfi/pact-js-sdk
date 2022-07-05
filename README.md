@@ -129,10 +129,13 @@ Managing the liquidity.
 
 ```js
 // Add liquidity.
-const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
-  address: account.addr,
+const liquidityAddition = pool.prepareAddLiquidity({
   primaryAssetAmount: 100_000,
   secondaryAssetAmount: 50_000,
+})
+const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
+  address: account.addr,
+  liquidityAddition,
 });
 const signedAddLiqTx = addLiqTxGroup.signTxn(account.sk);
 const sentAddLiqTx = await algod.sendRawTransaction(signedAddLiqTx).do();
