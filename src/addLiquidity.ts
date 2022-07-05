@@ -2,6 +2,7 @@ import { Pool, StableswapPoolParams } from "./pool";
 import {
   StableswapCalculator,
   getAddLiquidityBonusPct,
+  getTxFee,
 } from "./stableswapCalculator";
 import { TransactionGroup } from "./transactionGroup";
 
@@ -29,6 +30,11 @@ export type AddLiquidityEffect = {
    * Also, a fee is subtracted from each liquidity addition. This negatively impacts the bonus.
    */
   bonusPct: number;
+
+  /**
+   * App call transaction fee.
+   */
+  txFee: number;
 };
 
 /**
@@ -83,8 +89,7 @@ export class LiquidityAddition {
    */
   prepareTxGroup(address: string): Promise<TransactionGroup> {
     return this.pool.prepareAddLiquidityTxGroup({
-      primaryAssetAmount: this.primaryAssetAmount,
-      secondaryAssetAmount: this.secondaryAssetAmount,
+      liquidityAddition: this,
       address,
     });
   }
@@ -92,9 +97,17 @@ export class LiquidityAddition {
   private buildEffect(): AddLiquidityEffect {
     let amplifier = 0;
     let bonusPct = 0;
+    let txFee = 3000;
 
     const swapCalc = this.pool.calculator.swapCalculator;
     const state = this.pool.state;
+
+    const mintedLiquidityTokens = Number(
+      swapCalc.getMintedLiquidityTokens(
+        BigInt(this.primaryAssetAmount),
+        BigInt(this.secondaryAssetAmount),
+      ),
+    );
 
     if (swapCalc instanceof StableswapCalculator) {
       const dAmplifier = swapCalc.getAmplifier();
@@ -109,19 +122,14 @@ export class LiquidityAddition {
         BigInt(params.precision),
       );
       amplifier = Number(dAmplifier) / (this.pool.internalState.PRECISION ?? 1);
+      txFee = getTxFee(swapCalc.mintTokensInvariantIterations, 3);
     }
-
-    const mintedLiquidityTokens = Number(
-      swapCalc.getMintedLiquidityTokens(
-        BigInt(this.primaryAssetAmount),
-        BigInt(this.secondaryAssetAmount),
-      ),
-    );
 
     return {
       mintedLiquidityTokens,
       amplifier,
       bonusPct,
+      txFee,
     };
   }
 }

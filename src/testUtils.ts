@@ -150,10 +150,13 @@ export async function addLiquidity(
   const optInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
   await signAndSend(optInTx, account);
 
-  const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
-    address: account.addr,
+  const liquidityAddition = pool.prepareAddLiquidity({
     primaryAssetAmount,
     secondaryAssetAmount,
+  });
+  const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
+    address: account.addr,
+    liquidityAddition,
   });
   await signAndSend(addLiqTxGroup, account);
   await pool.updateState();

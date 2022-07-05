@@ -20,13 +20,20 @@ function dAbs(value: bigint) {
  *
  * @returns The required fee.
  */
-export function getSwapTxFee(invariantIterations: number): number {
-  const expectedInnerTxCount = Math.ceil(
-    (invariantIterations * 369 + 600) / 700,
-  );
-  return (expectedInnerTxCount + 2) * 1000;
+export function getTxFee(
+  invariantIterations: number,
+  extraMargin: number,
+): number {
+  const innerTxCount = Math.ceil((invariantIterations * 369) / 700);
+  // +1 - first obligatory inner tx
+  // +1 - app call
+  // +2 in total
+  return (innerTxCount + 2 + extraMargin) * 1000;
 }
 
+/**
+ * Returns a tuple of minted tokens and total Newton-Raphson iterations (needed for tx fee calculations).
+ */
 export function getStableswapMintedLiquidityTokens(
   addedPrimary: bigint,
   addedSecondary: bigint,
@@ -36,15 +43,16 @@ export function getStableswapMintedLiquidityTokens(
   amplifier: bigint,
   precision: bigint,
   feeBps: bigint,
-): bigint {
+): [bigint, number] {
   if (totalPrimary + totalSecondary === 0n) {
-    return getConstantProductMintedLiquidityTokens(
+    const mintedTokens = getConstantProductMintedLiquidityTokens(
       addedPrimary,
       addedSecondary,
       totalPrimary,
       totalSecondary,
       totalLiquidity,
     );
+    return [mintedTokens, 0];
   }
 
   const initialTotals: [bigint, bigint] = [totalPrimary, totalSecondary];
@@ -53,21 +61,24 @@ export function getStableswapMintedLiquidityTokens(
     totalSecondary + addedSecondary,
   ];
 
-  const [fees, initialD] = getAddLiquidityFees(
+  const [fees, initialD, invariantIterations] = getAddLiquidityFees(
     initialTotals,
     updatedTotals,
     feeBps,
     amplifier,
     precision,
   );
-  const [nextD] = getInvariant(
+  const [nextD, nextIterations] = getInvariant(
     updatedTotals[0] - fees[0],
     updatedTotals[1] - fees[1],
     amplifier,
     precision,
   );
 
-  return (totalLiquidity * (nextD - initialD)) / initialD;
+  return [
+    (totalLiquidity * (nextD - initialD)) / initialD,
+    invariantIterations + nextIterations,
+  ];
 }
 
 export function getAddLiquidityBonusPct(
@@ -125,10 +136,10 @@ export function getAddLiquidityFees(
   feeBps: bigint,
   amplifier: bigint,
   precision: bigint,
-): [[bigint, bigint], bigint] {
+): [[bigint, bigint], bigint, number] {
   const n = 2n;
 
-  const [initialD] = getInvariant(
+  const [initialD, initialIterations] = getInvariant(
     initialTotals[0],
     initialTotals[1],
     amplifier,
@@ -136,7 +147,7 @@ export function getAddLiquidityFees(
   );
 
   // Calculate the invariant as if all tokens were added to the pool.
-  const [nextD] = getInvariant(
+  const [nextD, nextIterations] = getInvariant(
     updatedTotals[0],
     updatedTotals[1],
     amplifier,
@@ -155,7 +166,7 @@ export function getAddLiquidityFees(
     (delta) => (delta * feeBps * n) / (10_000n * (4n * (n - 1n))),
   ) as [bigint, bigint];
 
-  return [fees, initialD];
+  return [fees, initialD, initialIterations + nextIterations];
 }
 
 /**
@@ -257,7 +268,8 @@ export function getAmplifier(
  */
 export class StableswapCalculator implements SwapCalculator {
   /** Keeps the amount of iteration used to calculate invariant in the last call to getSwapGrossAmountReceived or getSwapAmountDeposited. Needed to calculate transaction fee. */
-  invariantIterations = 0;
+  swapInvariantIterations = 0;
+  mintTokensInvariantIterations = 0;
 
   constructor(public pool: Pool) {}
 
@@ -354,7 +366,7 @@ export class StableswapCalculator implements SwapCalculator {
       precision,
     );
     if (saveIterations) {
-      this.invariantIterations = invariantIterations;
+      this.swapInvariantIterations = invariantIterations;
     }
     const newLiqB = getNewLiq(
       liqA + amountDeposited,
@@ -380,7 +392,7 @@ export class StableswapCalculator implements SwapCalculator {
       precision,
     );
     if (saveIterations) {
-      this.invariantIterations = invariantIterations;
+      this.swapInvariantIterations = invariantIterations;
     }
     const newLiqA = getNewLiq(
       liqB - grossAmountReceived,
@@ -395,7 +407,7 @@ export class StableswapCalculator implements SwapCalculator {
     const precision = BigInt(this.stableswapParams.precision);
     const amplifier = this.getAmplifier();
 
-    const mintedTokens = getStableswapMintedLiquidityTokens(
+    const [mintedTokens, iterations] = getStableswapMintedLiquidityTokens(
       addedLiqA,
       addedLiqB,
       BigInt(this.pool.state.totalPrimary),
@@ -405,6 +417,8 @@ export class StableswapCalculator implements SwapCalculator {
       precision,
       BigInt(this.pool.feeBps),
     );
+
+    this.mintTokensInvariantIterations = iterations;
 
     if (mintedTokens > 0n) {
       return mintedTokens;
