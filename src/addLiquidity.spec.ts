@@ -47,8 +47,8 @@ async function assertStableswapBonus(
     liquidityAddition.secondaryAssetAmount;
   const realBonusPct = ((received - totalAdded) / totalAdded) * 100;
 
-  expect(liquidityAddition.effect.bonusPct.toFixed(2)).toBe(
-    realBonusPct.toFixed(2),
+  expect(liquidityAddition.effect.bonusPct.toFixed(1)).toBe(
+    realBonusPct.toFixed(1),
   );
 }
 
@@ -153,7 +153,7 @@ describe("stableswap add liquidity", () => {
 
     await addLiquidity(account, pool, 50_000, 60_000);
 
-    const [primaryAssetAmount, secondaryAssetAmount] = [0, 30_000];
+    const [primaryAssetAmount, secondaryAssetAmount] = [0, 10_000];
 
     const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount,
