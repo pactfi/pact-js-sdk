@@ -440,7 +440,7 @@ export class Pool {
    * - deposit of asset B
    * - "ADDLIQ" application call to add liquidity with the above deposits
    *
-   * For constant product pools only - if the pool is empty and the product of both assets is larger then 2**64 then an additional set of 3 transactions is built.
+   * For constant product pools only - if the pool is empty and the product of both assets is larger then or equal 2**64 then an additional set of 3 transactions is built.
    *
    * The initial liquidity must satisfy the expression `sqrt(a * b) - 1000 < 0`.
    *
@@ -465,7 +465,7 @@ export class Pool {
       }
 
       if (this.poolType === "CONSTANT_PRODUCT") {
-        // Adding initial liquidity has a limitation that the product of 2 assets must be lower then 2**64. Let's check if we can fit below the limit.
+        // Adding initial liquidity has a limitation that the product of 2 assets must be lower than 2**64. Let's check if we can fit below the limit.
         const maxProduct = new D(2).pow(new D(64));
         const product = new D(primaryAssetAmount).mul(secondaryAssetAmount);
         if (product.gte(maxProduct)) {

@@ -194,7 +194,7 @@ describe("Generic pool", () => {
     const liqOptInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
     await signAndSend(liqOptInTx, account);
 
-    // Adding initial liquidity has a limitation that the product of 2 assets must be lower then 2**64.
+    // Adding initial liquidity has a limitation that the product of 2 assets must be lower than 2**64.
     // Let's go beyond that limit and check what happens.
     const [primaryAssetAmount, secondaryAssetAmount] = [2 ** 40, 2 ** 30];
 

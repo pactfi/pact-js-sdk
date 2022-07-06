@@ -27,8 +27,9 @@ export function getTxFee(
   const innerTxCount = Math.ceil((invariantIterations * 369) / 700);
   // +1 - first obligatory inner tx
   // +1 - app call
-  // +2 in total
-  return (innerTxCount + 2 + extraMargin) * 1000;
+  // +1 - sending liquidity tokens
+  // +3 in total
+  return (innerTxCount + 3 + extraMargin) * 1000;
 }
 
 /**
