@@ -121,13 +121,8 @@ export function getAddLiquidityBonusPct(
   );
 
   // Calculate the gain in absolute terms, considering that each token is worth 1.
-  const totalTokensInThePool = Number(finalBalances[0] + finalBalances[1]);
-  const poolOwnership = Number(finalD - initialD) / Number(finalD);
-
-  const liquidityValue = totalTokensInThePool * poolOwnership;
   const totalAdded = Number(addedPrimary + addedSecondary);
-
-  return ((liquidityValue - totalAdded) / totalAdded) * 100;
+  return (Number(finalD - initialD) / totalAdded - 1) * 100;
 }
 
 export function getAddLiquidityFees(

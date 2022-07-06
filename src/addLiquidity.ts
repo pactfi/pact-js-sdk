@@ -122,7 +122,7 @@ export class LiquidityAddition {
         BigInt(params.precision),
       );
       amplifier = Number(dAmplifier) / (this.pool.internalState.PRECISION ?? 1);
-      txFee = getTxFee(swapCalc.mintTokensInvariantIterations, 3);
+      txFee = getTxFee(swapCalc.mintTokensInvariantIterations, 4); // 1 for each invariant calculation (3) and 1 for sending liquidity tokens.
     }
 
     return {
