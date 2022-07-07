@@ -17,6 +17,7 @@ function dAbs(value: bigint) {
  * Algorand has a limit of the number of operations available in a single app call. To increase the limit, an additional empty inner transaction have to be created. Each extra tx increases tx fee. This functions calculates the fee needed for a swap transaction.
  *
  * @param invariantIterations Number of iterations of Newton-Raphson interpolation.
+ * @param extraMargin Number of extra inner transactions needed in case of slippage.
  *
  * @returns The required fee.
  */
@@ -264,6 +265,8 @@ export function getAmplifier(
 export class StableswapCalculator implements SwapCalculator {
   /** Keeps the amount of iteration used to calculate invariant in the last call to getSwapGrossAmountReceived or getSwapAmountDeposited. Needed to calculate transaction fee. */
   swapInvariantIterations = 0;
+
+  /** The same as swapInvariantIterations but for adding liquidity. */
   mintTokensInvariantIterations = 0;
 
   constructor(public pool: Pool) {}

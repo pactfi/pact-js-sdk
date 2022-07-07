@@ -404,8 +404,7 @@ export class Pool {
   }
 
   /**
-   * Creates a new LiquidityAddition instance. Use this, if you want to inspect the effect of adding the liquidity.
-   * If you don't care about effect, then you can use [[Pool.prepareAddLiquidityTxGroup]] instead.
+   * Creates a new LiquidityAddition instance.
    *
    * @param options Options for adding the liquidity.
    *

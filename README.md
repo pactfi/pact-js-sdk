@@ -133,10 +133,7 @@ const liquidityAddition = pool.prepareAddLiquidity({
   primaryAssetAmount: 100_000,
   secondaryAssetAmount: 50_000,
 })
-const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
-  address: account.addr,
-  liquidityAddition,
-});
+const addLiqTxGroup = await liquidityAddition.prepareTxGroup(account.addr);
 const signedAddLiqTx = addLiqTxGroup.signTxn(account.sk);
 const sentAddLiqTx = await algod.sendRawTransaction(signedAddLiqTx).do();
 await algosdk.waitForConfirmation(algod, sentAddLiqTx.txId, 2);

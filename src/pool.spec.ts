@@ -202,10 +202,7 @@ describe("Generic pool", () => {
       primaryAssetAmount,
       secondaryAssetAmount,
     });
-    const txGroup = await pool.prepareAddLiquidityTxGroup({
-      address: account.addr,
-      liquidityAddition,
-    });
+    const txGroup = await liquidityAddition.prepareTxGroup(account.addr);
 
     // liquidity is split into two chunks, so 6 txs instead of 3.
     expect(txGroup.transactions.length).toBe(6);
@@ -271,10 +268,7 @@ describe("Constant product pool", () => {
       primaryAssetAmount: 100_000,
       secondaryAssetAmount: 100_000,
     });
-    const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
-      address: account.addr,
-      liquidityAddition,
-    });
+    const addLiqTxGroup = await liquidityAddition.prepareTxGroup(account.addr);
     expect(addLiqTxGroup.transactions.length).toBe(3);
     await signAndSend(addLiqTxGroup, account);
     await pool.updateState();
@@ -362,10 +356,7 @@ describe("Constant product pool", () => {
       primaryAssetAmount: 100_000,
       secondaryAssetAmount: 10 ** 18,
     });
-    const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
-      address: account.addr,
-      liquidityAddition,
-    });
+    const addLiqTxGroup = await liquidityAddition.prepareTxGroup(account.addr);
     expect(addLiqTxGroup.transactions.length).toBe(6);
     await signAndSend(addLiqTxGroup, account);
     await pool.updateState();
@@ -482,10 +473,7 @@ describe("Stableswap pool", () => {
       primaryAssetAmount: 100_000_000,
       secondaryAssetAmount: 100_000_000,
     });
-    const addLiqTxGroup = await pool.prepareAddLiquidityTxGroup({
-      address: account.addr,
-      liquidityAddition,
-    });
+    const addLiqTxGroup = await liquidityAddition.prepareTxGroup(account.addr);
     expect(addLiqTxGroup.transactions.length).toBe(3);
     await signAndSend(addLiqTxGroup, account);
     await pool.updateState();
