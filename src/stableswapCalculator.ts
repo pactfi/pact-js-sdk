@@ -12,6 +12,50 @@ function dAbs(value: bigint) {
   return value >= 0 ? value : -value;
 }
 
+export function getStableswapGrossAmountReceived(
+  liqA: bigint,
+  liqB: bigint,
+  amountDeposited: bigint,
+  amplifier: bigint,
+  precision: bigint,
+): [bigint, number] {
+  const [invariant, invariantIterations] = getInvariant(
+    liqA,
+    liqB,
+    amplifier,
+    precision,
+  );
+  const newLiqB = getNewLiq(
+    liqA + amountDeposited,
+    amplifier,
+    invariant,
+    precision,
+  );
+  return [liqB - newLiqB, invariantIterations];
+}
+
+export function getStableswapAmountDeposited(
+  liqA: bigint,
+  liqB: bigint,
+  grossAmountReceived: bigint,
+  amplifier: bigint,
+  precision: bigint,
+): [bigint, number] {
+  const [invariant, invariantIterations] = getInvariant(
+    liqA,
+    liqB,
+    amplifier,
+    precision,
+  );
+  const newLiqA = getNewLiq(
+    liqB - grossAmountReceived,
+    amplifier,
+    invariant,
+    precision,
+  );
+  return [newLiqA - liqA, invariantIterations];
+}
+
 /**
  * To calculate the pool invariant, a Newton-Raphson method is used in both - the SDK and the smart contract.
  * Algorand has a limit of the number of operations available in a single app call. To increase the limit, an additional empty inner transaction have to be created. Each extra tx increases tx fee. This functions calculates the fee needed for a swap transaction.
@@ -235,13 +279,13 @@ export function getNewLiq(
 }
 
 export function getAmplifier(
+  timestampInSeconds: number,
   initialA: number,
   initialATime: number,
   futureA: number,
   futureATime: number,
 ): bigint {
   // Linear interpolation based on current timestamp.
-  const now = Date.now() / 1000; // Convert miliseconds to seconds.
   const dt = futureATime - initialATime;
   const dv = futureA - initialA;
   if (!dt || !dv) {
@@ -253,7 +297,7 @@ export function getAmplifier(
   const [minA, maxA] =
     futureA > initialA ? [initialA, futureA] : [futureA, initialA];
 
-  let currentA = initialA + (now - initialATime) * dvPerSecond;
+  let currentA = initialA + (timestampInSeconds - initialATime) * dvPerSecond;
   currentA = Math.max(minA, Math.min(maxA, Math.round(currentA)));
 
   return BigInt(currentA);
@@ -277,7 +321,9 @@ export class StableswapCalculator implements SwapCalculator {
 
   getAmplifier(): bigint {
     const params = this.stableswapParams;
+    const now = Date.now() / 1000; // Convert miliseconds to seconds.
     return getAmplifier(
+      now,
       params.initialA,
       params.initialATime,
       params.futureA,
@@ -357,22 +403,20 @@ export class StableswapCalculator implements SwapCalculator {
     const precision = BigInt(this.stableswapParams.precision);
     const amplifier = this.getAmplifier();
 
-    const [invariant, invariantIterations] = getInvariant(
-      liqA,
-      liqB,
-      amplifier,
-      precision,
-    );
+    const [amountReceived, invariantIterations] =
+      getStableswapGrossAmountReceived(
+        liqA,
+        liqB,
+        amountDeposited,
+        amplifier,
+        precision,
+      );
+
     if (saveIterations) {
       this.swapInvariantIterations = invariantIterations;
     }
-    const newLiqB = getNewLiq(
-      liqA + amountDeposited,
-      amplifier,
-      invariant,
-      precision,
-    );
-    return liqB - newLiqB;
+
+    return amountReceived;
   }
 
   getSwapAmountDeposited(
@@ -383,22 +427,20 @@ export class StableswapCalculator implements SwapCalculator {
   ): bigint {
     const precision = BigInt(this.stableswapParams.precision);
     const amplifier = this.getAmplifier();
-    const [invariant, invariantIterations] = getInvariant(
+
+    const [amountDeposited, invariantIterations] = getStableswapAmountDeposited(
       liqA,
       liqB,
+      grossAmountReceived,
       amplifier,
       precision,
     );
+
     if (saveIterations) {
       this.swapInvariantIterations = invariantIterations;
     }
-    const newLiqA = getNewLiq(
-      liqB - grossAmountReceived,
-      amplifier,
-      invariant,
-      precision,
-    );
-    return newLiqA - liqA;
+
+    return amountDeposited;
   }
 
   getMintedLiquidityTokens(addedLiqA: bigint, addedLiqB: bigint): bigint {
