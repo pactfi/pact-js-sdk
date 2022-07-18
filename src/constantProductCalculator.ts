@@ -5,6 +5,32 @@ import { isqrt } from "./isqrt";
 import { Pool } from "./pool";
 import { SwapCalculator } from "./types";
 
+export function getConstantProductSwapGrossAmountReceived(
+  liqA: bigint,
+  liqB: bigint,
+  amountDeposited: bigint,
+): bigint {
+  return (liqB * amountDeposited) / (liqA + amountDeposited);
+}
+
+export function getConstantProductSwapAmountDeposited(
+  liqA: bigint,
+  liqB: bigint,
+  grossAmountReceived: bigint,
+): bigint {
+  // Using D because of "ceil()"
+  const dLiqA = new D(liqA.toString());
+  const dLiqB = new D(liqB.toString());
+  const dGrossAmountReceived = new D(grossAmountReceived.toString());
+  return BigInt(
+    dLiqA
+      .mul(dGrossAmountReceived)
+      .div(dLiqB.sub(dGrossAmountReceived))
+      .ceil()
+      .toNumber(),
+  );
+}
+
 export function getConstantProductMintedLiquidityTokens(
   addedPrimary: bigint,
   addedSecondary: bigint,
@@ -39,7 +65,11 @@ export class ConstantProductCalculator implements SwapCalculator {
     liqB: bigint,
     amountDeposited: bigint,
   ): bigint {
-    return (liqB * amountDeposited) / (liqA + amountDeposited);
+    return getConstantProductSwapGrossAmountReceived(
+      liqA,
+      liqB,
+      amountDeposited,
+    );
   }
 
   getSwapAmountDeposited(
@@ -47,16 +77,10 @@ export class ConstantProductCalculator implements SwapCalculator {
     liqB: bigint,
     grossAmountReceived: bigint,
   ): bigint {
-    // Using D to because of "ceil()"
-    const dLiqA = new D(liqA.toString());
-    const dLiqB = new D(liqB.toString());
-    const dGrossAmountReceived = new D(grossAmountReceived.toString());
-    return BigInt(
-      dLiqA
-        .mul(dGrossAmountReceived)
-        .div(dLiqB.sub(dGrossAmountReceived))
-        .ceil()
-        .toNumber(),
+    return getConstantProductSwapAmountDeposited(
+      liqA,
+      liqB,
+      grossAmountReceived,
     );
   }
 
