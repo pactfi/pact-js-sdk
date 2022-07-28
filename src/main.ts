@@ -11,3 +11,4 @@ export * from "./constantProductCalculator";
 export * from "./stableswapCalculator";
 export * from "./api";
 export * from "./types";
+export * from "./zap";

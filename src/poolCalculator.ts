@@ -164,7 +164,14 @@ export class PoolCalculator {
     );
   }
 
-  private getLiquidities(asset: Asset): [bigint, bigint] {
+  /**
+   * Returns the array of liquidities from the pool, sorting them by setting provided asset as primary.
+   *
+   * @param asset The asset that is supposed to be the primary one.
+   *
+   * @returns Total liquidities of assets.
+   */
+  getLiquidities(asset: Asset): [bigint, bigint] {
     let [A, B] = [this.primaryAssetAmount, this.secondaryAssetAmount];
     if (asset.index !== this.pool.primaryAsset.index) {
       [A, B] = [B, A];

@@ -23,6 +23,7 @@ import {
 } from "./poolState";
 import { Swap } from "./swap";
 import { TransactionGroup } from "./transactionGroup";
+import { Zap } from "./zap";
 
 /**
  * The arguments to add liquidity to the pool.
@@ -54,6 +55,24 @@ export type RawAddLiquidityTxOptions = AddLiquidityOptions & {
 
   /** An optional note that can be added to the application ADDLIQ transaction. */
   note?: Uint8Array;
+};
+
+/** The arguments to add liquidity to the pool using zap. */
+export type ZapOptions = {
+  /** Asset provided for the zap. */
+  asset: Asset;
+
+  /** Amount used for the zap. */
+  amount: number;
+
+  /** The maximum allowed slippage in percents e.g. `10` is 10%. The swap will fail if slippage will be higher. */
+  slippagePct: number;
+};
+
+/** The options for building zap transactions. */
+export type ZapTxOptions = {
+  zap: Zap;
+  address: string;
 };
 
 /** The arguments for removing liquidity from the pool. */
@@ -647,6 +666,64 @@ export class Pool {
     });
 
     return [txn1, txn2];
+  }
+
+  /**
+   * Creates a new zap instance for getting all required data for performing a zap.
+   *
+   * @param options Zap options.
+   *
+   * @throws PactSdkError if the asset is not in the pool or if the pool is a Stableswap type.
+   *
+   * @returns A new zap object.
+   */
+  prepareZap(options: ZapOptions): Zap {
+    return new Zap(this, options.asset, options.amount, options.slippagePct);
+  }
+
+  /**
+    Prepares a [[TransactionGroup]] for performing a Zap on the pool. See [[Pool.buildZapTxs]] for details.
+   *
+   * @param options Options for Zap.
+   *
+   * @returns A transaction group that when executed will add liquidity to the pool by getting only one amount.
+   */
+  async prepareZapTxGroup(options: ZapTxOptions) {
+    const suggestedParams = await this.algod.getTransactionParams().do();
+    const txs = this.buildZapTxs({ ...options, suggestedParams });
+    return new TransactionGroup(txs);
+  }
+
+  /**
+   * Builds the transactions to perform a Zap on the pool as per the options passed in. Zap allows to add liquidity to the pool by providing only one asset.
+   *
+   * This function will generate swap Txs to get a proper amount of the second asset and then generate add liquidity Txs with both of those assets.
+   * See [[Pool.buildSwapTxs]] and [[Pool.buildAddLiquidityTxs]] for more details.
+   *
+   * This feature is supposed to work with constant product pools only. Stableswaps can accept one asset to add liquidity by default.
+   *
+   * @param options Options for building Zap txs.
+   *
+   * @returns Array of transactions to swap & add liquidity.
+   */
+  buildZapTxs({
+    address,
+    zap,
+    suggestedParams,
+  }: ZapTxOptions & SuggestedParamsOption) {
+    const { swap, liquidityAddition } = zap;
+
+    const swapTxs = this.buildSwapTxs({
+      address: address,
+      swap,
+      suggestedParams,
+    });
+    const addLiqTxs = this.buildAddLiquidityTxs({
+      address: address,
+      liquidityAddition,
+      suggestedParams,
+    });
+    return [...swapTxs, ...addLiqTxs];
   }
 
   private makeDepositTx(options: MakeDepositTxOptions) {
