@@ -61,6 +61,7 @@ export function deployExchangeContract(
   secondaryAssetIndex: number,
   options: {
     feeBps?: number;
+    version?: number;
   } = {},
 ) {
   return deployContract(
@@ -80,6 +81,7 @@ export function deployStableswapContract(
     feeBps?: number;
     pactFeeBps?: number;
     amplifier?: number;
+    version?: number;
   } = {},
 ) {
   return deployContract(
@@ -100,24 +102,28 @@ export function deployContract(
     feeBps?: number;
     pactFeeBps?: number;
     amplifier?: number;
+    version?: number;
   } = {},
 ): Promise<number> {
   const mnemonic = algosdk.secretKeyToMnemonic(account.sk);
 
-  const command = `
-    cd algorand-testbed && \\
-    ALGOD_URL=http://localhost:8787 \\
-    ALGOD_TOKEN=8cec5f4261a2b5ad831a8a701560892cabfe1f0ca00a22a37dee3e1266d726e3 \\
-    DEPLOYER_MNEMONIC="${mnemonic}" \\
-    poetry run python scripts/deploy.py \\
-   --contract-type=${poolType.toLowerCase()} \\
-   --primary_asset_id=${primaryAssetIndex} \\
-   --secondary_asset_id=${secondaryAssetIndex} \\
-   --fee_bps=${options.feeBps ?? 30} \\
-   --pact_fee_bps=${options.pactFeeBps ?? 0} \\
-   --amplifier=${(options.amplifier ?? 80) * 1000} \\
-   --admin_and_treasury_address=${account.addr}
-   `;
+  // Add version if exists
+  let command = `cd algorand-testbed && \\
+  ALGOD_URL=http://localhost:8787 \\
+  ALGOD_TOKEN=8cec5f4261a2b5ad831a8a701560892cabfe1f0ca00a22a37dee3e1266d726e3 \\
+  DEPLOYER_MNEMONIC="${mnemonic}" \\
+  poetry run python scripts/deploy.py \\
+  --contract-type=${poolType.toLowerCase()} \\
+  --primary_asset_id=${primaryAssetIndex} \\
+  --secondary_asset_id=${secondaryAssetIndex} \\
+  --fee_bps=${options.feeBps ?? 30} \\
+  --pact_fee_bps=${options.pactFeeBps ?? 0} \\
+  --amplifier=${(options.amplifier ?? 80) * 1000} \\
+  --admin_and_treasury_address=${account.addr}`;
+
+  command = options.version
+    ? command + ` --version=${options.version}`
+    : command;
 
   return new Promise((resolve, reject) => {
     exec(command, (error, stdout, stderr) => {
@@ -193,6 +199,7 @@ export async function makeFreshTestBed(
     poolType?: PoolType;
     feeBps?: number;
     amplifier?: number;
+    version?: number;
   } = {},
 ): Promise<TestBed> {
   const account = await newAccount();
@@ -203,6 +210,7 @@ export async function makeFreshTestBed(
   const coin = await pact.fetchAsset(coinIndex);
 
   const poolType = options.poolType ?? "CONSTANT_PRODUCT";
+
   const appId = await deployContract(
     account,
     poolType,
@@ -211,8 +219,10 @@ export async function makeFreshTestBed(
     {
       feeBps: options.feeBps,
       amplifier: options.amplifier,
+      version: options.version,
     },
   );
+
   const pool = await pact.fetchPoolById(appId);
 
   return { account, pact, algo, coin, pool };
