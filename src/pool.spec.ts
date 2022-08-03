@@ -1,5 +1,6 @@
 import { Asset } from "./asset";
 import { PactClient } from "./client";
+import { Pool } from "./pool";
 import { StableswapPoolParams } from "./pool";
 import {
   TestBed,
@@ -215,20 +216,44 @@ describe("Generic pool", () => {
   });
 });
 
+async function test_parsing_state(
+  testBed: TestBed,
+  pool: Pool,
+  version: number,
+  state: object,
+) {
+  expect(pool.primaryAsset.index).toBe(testBed.algo.index);
+  expect(pool.secondaryAsset.index).toBe(testBed.coin.index);
+
+  expect(pool.poolType).toBe("CONSTANT_PRODUCT");
+  expect(pool.version).toBe(version);
+
+  expect(pool.internalState).toEqual(state);
+}
+
 describe("Constant product pool", () => {
+  it("parsing state version 1", async () => {
+    const testBed = await makeFreshTestBed({
+      poolType: "CONSTANT_PRODUCT",
+      version: 1,
+    });
+    const pool = testBed.pool;
+    const state = {
+      A: 0,
+      ASSET_A: pool.primaryAsset.index,
+      ASSET_B: pool.secondaryAsset.index,
+      LTID: pool.liquidityAsset.index,
+      B: 0,
+      FEE_BPS: pool.feeBps,
+      L: 0,
+    };
+    test_parsing_state(testBed, pool, 0, state);
+  });
+
   it("parsing state", async () => {
     const testBed = await makeFreshTestBed({ poolType: "CONSTANT_PRODUCT" });
-    const pact = new PactClient(algod);
-
-    const pool = await pact.fetchPoolById(testBed.pool.appId);
-
-    expect(pool.primaryAsset.index).toBe(testBed.algo.index);
-    expect(pool.secondaryAsset.index).toBe(testBed.coin.index);
-
-    expect(pool.poolType).toBe("CONSTANT_PRODUCT");
-    expect(pool.version).toBe(2);
-
-    expect(pool.internalState).toEqual({
+    const pool = testBed.pool;
+    const state = {
       A: 0,
       ADMIN: testBed.account.addr,
       ASSET_A: pool.primaryAsset.index,
@@ -243,14 +268,12 @@ describe("Constant product pool", () => {
       SECONDARY_FEES: 0,
       TREASURY: testBed.account.addr,
       VERSION: 2,
-    });
+    };
+    test_parsing_state(testBed, pool, 2, state);
   });
 
-  it("e2e scenario", async () => {
-    const { account, algo, coin, pool } = await makeFreshTestBed({
-      poolType: "CONSTANT_PRODUCT",
-    });
-
+  async function e2e_scenario(testBed: TestBed) {
+    const { account, algo, coin, pool } = testBed;
     expect(pool.state).toEqual({
       totalLiquidity: 0,
       totalPrimary: 0,
@@ -326,10 +349,28 @@ describe("Constant product pool", () => {
     expect(pool.state.totalSecondary > 100_000).toBe(true);
     expect(pool.state.primaryAssetPrice > 1).toBe(true);
     expect(pool.state.secondaryAssetPrice < 1).toBe(true);
+  }
+
+  it("e2e scenario version 1", async () => {
+    const testBed = await makeFreshTestBed({
+      poolType: "CONSTANT_PRODUCT",
+      version: 1,
+    });
+    e2e_scenario(testBed);
+  });
+
+  it("e2e scenario", async () => {
+    const testBed = await makeFreshTestBed({
+      poolType: "CONSTANT_PRODUCT",
+    });
+    e2e_scenario(testBed);
   });
 
   it("Pool e2e scenario for asset with 19 decimals", async () => {
-    const { account, algo, pact } = await makeFreshTestBed();
+    const testBed = await makeFreshTestBed({
+      poolType: "CONSTANT_PRODUCT",
+    });
+    const { account, algo, pact } = testBed;
 
     const coinBIndex = await createAsset(account, "coinA", 19, 10 ** 19);
 
