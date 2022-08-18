@@ -25,7 +25,7 @@ describe("zap", () => {
     expect(zapPrimaryAdd.params).toEqual({
       swapDeposited: 4888n,
       primaryAddLiq: 5112n,
-      secondaryAddLiq: 4646n,
+      secondaryAddLiq: 4645n,
     });
 
     // Perform a zap using secondary asset.
@@ -36,7 +36,7 @@ describe("zap", () => {
     });
     expect(zapSecondaryAdd.params).toEqual({
       swapDeposited: 4888n,
-      primaryAddLiq: 4646n,
+      primaryAddLiq: 4645n,
       secondaryAddLiq: 5112n,
     });
 
@@ -55,7 +55,7 @@ describe("zap", () => {
     });
     expect(unbalancedZap.params).toEqual({
       swapDeposited: 7339n,
-      primaryAddLiq: 42199n,
+      primaryAddLiq: 42198n,
       secondaryAddLiq: 12661n,
     });
   });
@@ -142,11 +142,11 @@ describe("zap", () => {
     await pool.updateState();
 
     expect(pool.state).toEqual({
-      totalLiquidity: 104872,
-      totalPrimary: 109999,
-      totalSecondary: 100000,
-      primaryAssetPrice: 0.9090991736288512,
-      secondaryAssetPrice: 1.09999,
+      primaryAssetPrice: 0.9090983472426772,
+      secondaryAssetPrice: 1.099990999909999,
+      totalLiquidity: 104871,
+      totalPrimary: 109998,
+      totalSecondary: 99999,
     });
   });
 });

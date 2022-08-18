@@ -130,6 +130,7 @@ export type MakeDepositTxOptions = {
   address: string;
   asset: Asset;
   amount: number;
+  note: Uint8Array;
   suggestedParams: algosdk.SuggestedParams;
 };
 
@@ -507,7 +508,7 @@ export class Pool {
             primaryAssetAmount: primarySmallAmount,
             secondaryAssetAmount: secondarySmallAmount,
             suggestedParams: options.suggestedParams,
-            note: encode("Initial add liquidity"),
+            note: encode("Pact initial add liquidity"),
           });
         }
       }
@@ -529,12 +530,14 @@ export class Pool {
       address: options.address,
       asset: this.primaryAsset,
       amount: options.primaryAssetAmount,
+      note: encode("Pact add liquidity deposit"),
       suggestedParams: options.suggestedParams,
     });
     const tx2 = this.makeDepositTx({
       address: options.address,
       asset: this.secondaryAsset,
       amount: options.secondaryAssetAmount,
+      note: encode("Pact add liquidity deposit"),
       suggestedParams: options.suggestedParams,
     });
     const tx3 = this.makeApplicationNoopTx({
@@ -578,6 +581,7 @@ export class Pool {
       address: options.address,
       amount: options.amount,
       asset: this.liquidityAsset,
+      note: encode("Pact remove liquidity deposit"),
       suggestedParams: options.suggestedParams,
     });
     const txn2 = this.makeApplicationNoopTx({
@@ -656,6 +660,7 @@ export class Pool {
       address,
       amount: swap.effect.amountDeposited,
       asset: swap.assetDeposited,
+      note: encode("Pact swap deposit"),
       suggestedParams,
     });
     const txn2 = this.makeApplicationNoopTx({
@@ -733,6 +738,7 @@ export class Pool {
         from: options.address,
         to: this.getEscrowAddress(),
         amount: BigInt(options.amount),
+        note: options.note,
         suggestedParams: options.suggestedParams,
       });
     }
@@ -741,6 +747,7 @@ export class Pool {
       to: this.getEscrowAddress(),
       amount: BigInt(options.amount),
       assetIndex: options.asset.index,
+      note: options.note,
       suggestedParams: options.suggestedParams,
     });
   }

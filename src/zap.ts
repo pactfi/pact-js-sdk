@@ -146,11 +146,7 @@ export class Zap {
       asset,
       slippagePct,
     });
-    this.liquidityAddition = new LiquidityAddition(
-      this.pool,
-      Number(this.params.primaryAddLiq),
-      Number(this.params.secondaryAddLiq),
-    );
+    this.liquidityAddition = this.prepareAddLiq();
   }
 
   /**
@@ -187,9 +183,30 @@ export class Zap {
     if (!this.isAssetPrimary()) {
       // Reverse primary & secondary if provided asset was secondary.
       const temp = params.primaryAddLiq;
-      params.primaryAddLiq = params.secondaryAddLiq;
+      params.primaryAddLiq = params.secondaryAddLiq - 1n;
       params.secondaryAddLiq = temp;
+    } else {
+      // There is a small rounding error in many transactions. Substracting 1 solves this problem.
+      params.secondaryAddLiq -= 1n;
     }
     return params;
+  }
+
+  prepareAddLiq() {
+    // Minted liquidity tokens need to be calculated based on the state after the swap.
+    const updatedState = { ...this.pool.state };
+    if (this.isAssetPrimary()) {
+      updatedState.totalPrimary += Number(this.params.swapDeposited);
+      updatedState.totalSecondary -= Number(this.params.secondaryAddLiq);
+    } else {
+      updatedState.totalPrimary -= Number(this.params.primaryAddLiq);
+      updatedState.totalSecondary += Number(this.params.swapDeposited);
+    }
+
+    return new LiquidityAddition(
+      { ...this.pool, state: updatedState } as Pool,
+      Number(this.params.primaryAddLiq),
+      Number(this.params.secondaryAddLiq),
+    );
   }
 }

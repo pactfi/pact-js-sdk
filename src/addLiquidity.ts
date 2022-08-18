@@ -1,3 +1,5 @@
+import { getConstantProductMintedLiquidityTokens } from "./constantProductCalculator";
+import { PactSdkError } from "./exceptions";
 import { Pool, StableswapPoolParams } from "./pool";
 import {
   StableswapCalculator,
@@ -98,16 +100,10 @@ export class LiquidityAddition {
     let amplifier = 0;
     let bonusPct = 0;
     let txFee = 3000;
+    let mintedLiquidityTokens = 0;
 
     const swapCalc = this.pool.calculator.swapCalculator;
     const state = this.pool.state;
-
-    const mintedLiquidityTokens = Number(
-      swapCalc.getMintedLiquidityTokens(
-        BigInt(this.primaryAssetAmount),
-        BigInt(this.secondaryAssetAmount),
-      ),
-    );
 
     if (swapCalc instanceof StableswapCalculator) {
       const dAmplifier = swapCalc.getAmplifier();
@@ -121,8 +117,31 @@ export class LiquidityAddition {
         dAmplifier,
         BigInt(params.precision),
       );
+      mintedLiquidityTokens = Number(
+        swapCalc.getMintedLiquidityTokens(
+          BigInt(this.primaryAssetAmount),
+          BigInt(this.secondaryAssetAmount),
+        ),
+      );
       amplifier = Number(dAmplifier) / (this.pool.internalState.PRECISION ?? 1);
       txFee = getTxFee(swapCalc.mintTokensInvariantIterations, 4); // 1 for each invariant calculation (3) and 1 for sending liquidity tokens.
+    } else {
+      // Calculating without using calc, cause original pool may have different state, than the one provided (zap case).
+      mintedLiquidityTokens = Number(
+        getConstantProductMintedLiquidityTokens(
+          BigInt(this.primaryAssetAmount),
+          BigInt(this.secondaryAssetAmount),
+          BigInt(state.totalPrimary),
+          BigInt(state.totalSecondary),
+          BigInt(state.totalLiquidity),
+        ),
+      );
+
+      if (mintedLiquidityTokens <= 0) {
+        throw new PactSdkError(
+          "Amount of minted liquidity tokens must be greater then 0.",
+        );
+      }
     }
 
     return {
