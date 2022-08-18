@@ -460,7 +460,7 @@ export class Pool {
    *
    * For constant product pools only - if the pool is empty and the product of both assets is larger then or equal 2**64 then an additional set of 3 transactions is built.
    *
-   * The initial liquidity must satisfy the expression `sqrt(a * b) - 1000 < 0`.
+   * The initial liquidity must satisfy the expression `sqrt(a * b) - 1000 > 0`.
    *
    * @param options Options for adding the liquidity.
    *
@@ -478,7 +478,7 @@ export class Pool {
       const bLiq = BigInt(secondaryAssetAmount);
       if (isqrt(aLiq * bLiq) - 1000n <= 0) {
         throw new PactSdkError(
-          "Initial liquidity must satisfy the expression `sqrt(a * b) - 1000 < 0`",
+          "Initial liquidity must satisfy the expression `sqrt(a * b) - 1000 > 0`",
         );
       }
 
