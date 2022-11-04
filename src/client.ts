@@ -4,6 +4,7 @@ import { ApiListPoolsResponse, ListPoolsOptions, listPools } from "./api";
 import { Asset, fetchAssetByIndex } from "./asset";
 import { PactSdkError } from "./exceptions";
 import { Pool, fetchPoolById, fetchPoolsByAssets } from "./pool";
+import { NewPoolParams, PoolCreator } from "./poolCreator";
 
 /** A type that contains all the possible options to be sent to a client. Currently this contains only the URL for the API. */
 export type AllClientOptions = {
@@ -16,7 +17,7 @@ export type ClientOptions = Partial<AllClientOptions>;
 /**
  * An entry point for interacting with the SDK.
  *
- * Exposes convenience methods for fetching assets and pools.
+ * Exposes convenience methods for fetching assets and pools and provides PoolCreator, which can be used to create new pools in Pact.
  *
  * Example usage:
  * ```
@@ -30,6 +31,12 @@ export type ClientOptions = Partial<AllClientOptions>;
  * const otherCoin = await pact.fetchAsset(12345678);
  *
  * const pools = await pact.fetchPoolsByAssets(algo, otherCoin);
+ *
+ * const poolCreator = pact.getPoolCreator({
+ *   primary_asset_id: '0',
+ *   secondary_asset_id: '12345678',
+ *   fee_bps: 5
+ * });
  * ```
  */
 export class PactClient {
@@ -112,5 +119,16 @@ export class PactClient {
    */
   fetchPoolById(appId: number): Promise<Pool> {
     return fetchPoolById(this.algod, appId);
+  }
+
+  /**
+   * Prepares a tool that allows creating new pools on Pact.
+   *
+   * @param params Params required in new pool creation.
+   *
+   * @returns Pool Creator.
+   */
+  getPoolCreator(params: NewPoolParams) {
+    return new PoolCreator(params, this.pactApiUrl);
   }
 }

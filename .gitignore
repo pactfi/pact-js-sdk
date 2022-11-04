@@ -49,3 +49,6 @@ algorand-testbed
 # Generated documentation
 docs
 gh-pages
+
+# Lock file for deploy test
+deploy-test/package-lock.json
