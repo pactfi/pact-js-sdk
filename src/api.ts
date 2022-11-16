@@ -102,6 +102,7 @@ export type CompiledContract = CompiledTxn & {
   apgs: AppGlobals;
   apsu: number[];
   fee: number;
+  apep: number;
 };
 
 /**

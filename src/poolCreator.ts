@@ -261,6 +261,7 @@ export class PoolCreator {
       lastRound: poolData.lv,
       name: "Transaction",
       type: poolData.type,
+      extraPages: poolData.apep || 1,
     } as any;
     return new algosdk.Transaction(tx);
   }
