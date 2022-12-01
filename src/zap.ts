@@ -47,7 +47,7 @@ export function getSwapAmountDepositedFromZapping(
   pactFeeBps: bigint,
 ): bigint {
   const poolFee = feeBps - pactFeeBps;
-  const a = (-1n * FEE_PRECISION - poolFee + feeBps) / FEE_PRECISION;
+  const a = (-1n * (FEE_PRECISION + pactFeeBps)) / FEE_PRECISION;
   const b =
     (-2n * totalAmount * FEE_PRECISION +
       zapAmount * poolFee +
