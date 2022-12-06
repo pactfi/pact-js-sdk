@@ -48,6 +48,7 @@ export type ApiPool = {
   pool_asset: ApiAsset;
   primary_asset: ApiAsset;
   secondary_asset: ApiAsset;
+  version: number;
 };
 
 /**
