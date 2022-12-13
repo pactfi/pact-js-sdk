@@ -44,10 +44,12 @@ export type ApiPool = {
   volume_24h: string;
   apr_7d: string;
   id: number;
+  is_deprecated: boolean;
   is_verified: boolean;
   pool_asset: ApiAsset;
   primary_asset: ApiAsset;
   secondary_asset: ApiAsset;
+  version: number;
 };
 
 /**
