@@ -76,6 +76,13 @@ export function getSecondaryAddedLiquidityFromZapping(
     ((totalPrimary + swapDeposited) * FEE_PRECISION)
   );
 }
+export function getSwapAmountWithoutTax(
+  swapDeposited: bigint,
+  totalPrimary: bigint,
+  totalSecondary: bigint,
+): bigint {
+  return (swapDeposited * totalSecondary) / (totalPrimary + swapDeposited);
+}
 
 /**
  * Zap class represents a zap trade on a particular pool, which allows to exchange single asset for PLP token.
@@ -194,12 +201,21 @@ export class Zap {
 
   prepareAddLiq() {
     // Minted liquidity tokens need to be calculated based on the state after the swap.
+    const y = getSwapAmountWithoutTax(
+      BigInt(this.swap.amount),
+      BigInt(this.pool.state.totalPrimary),
+      BigInt(this.pool.state.totalSecondary),
+    );
+    const pactFeeAmount =
+      (y * BigInt(this.pool.params.pactFeeBps)) / FEE_PRECISION;
     const updatedState = { ...this.pool.state };
     if (this.isAssetPrimary()) {
       updatedState.totalPrimary += Number(this.params.swapDeposited);
-      updatedState.totalSecondary -= Number(this.params.secondaryAddLiq);
+      updatedState.totalSecondary -=
+        Number(this.params.secondaryAddLiq) + Number(pactFeeAmount);
     } else {
-      updatedState.totalPrimary -= Number(this.params.primaryAddLiq);
+      updatedState.totalPrimary -=
+        Number(this.params.primaryAddLiq) + Number(pactFeeAmount);
       updatedState.totalSecondary += Number(this.params.swapDeposited);
     }
 
