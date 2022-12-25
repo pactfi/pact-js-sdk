@@ -23,6 +23,7 @@ import {
 } from "./poolState";
 import { Swap } from "./swap";
 import { TransactionGroup } from "./transactionGroup";
+import { spFee } from "./utils";
 import { Zap } from "./zap";
 
 /**
@@ -765,11 +766,7 @@ export class Pool {
       appIndex: this.appId,
       foreignAssets,
       appArgs,
-      suggestedParams: {
-        ...options.suggestedParams,
-        fee: options.fee,
-        flatFee: true,
-      },
+      suggestedParams: spFee(options.suggestedParams, options.fee),
       note: options.note,
     });
   }

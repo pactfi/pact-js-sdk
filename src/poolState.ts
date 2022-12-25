@@ -1,12 +1,10 @@
-import { Buffer } from "buffer";
-
 import {
-  decode,
   decodeAddressFromGlobalState,
-  decodeStringFromGlobalState,
+  decodeBase64,
   decodeUint64Array,
 } from "./encoding";
 import { PoolType } from "./pool";
+import { parseState } from "./utils";
 
 /**
  * The one to one representation of pool's global state.
@@ -64,7 +62,7 @@ export function parseGlobalPoolState(rawState: any[]): AppInternalState {
   delete state.CONFIG;
 
   if (state.CONTRACT_NAME) {
-    state.CONTRACT_NAME = decodeStringFromGlobalState(state.CONTRACT_NAME);
+    state.CONTRACT_NAME = decodeBase64(state.CONTRACT_NAME);
   }
 
   if (state.ADMIN) {
@@ -82,32 +80,6 @@ export function parseGlobalPoolState(rawState: any[]): AppInternalState {
     const [ASSET_A, ASSET_B, FEE_BPS, PRECISION] = decodeUint64Array(CONFIG);
     return { ASSET_A, ASSET_B, FEE_BPS, PRECISION, ...state };
   }
-}
-
-/**
- * Utility function for converting the Algorand key-value schema into a plain object.
- *
- * Algorand store keys in base64 encoding and store values as either bytes or unsigned integers depending
- * on the type. This function decodes this information into a more human friendly structure.
- *
- * @param kv Algorand key-value data structure to parse.
- *
- * @returns Key value dictionary parsed from the argument.
- */
-export function parseState(kv: any) {
-  // Transform algorand key-value schema.
-  const res: any = {};
-  for (const elem of kv) {
-    const key = decode(Buffer.from(elem["key"], "base64"));
-    let val: string | number;
-    if (elem["value"]["type"] == 1) {
-      val = elem["value"]["bytes"];
-    } else {
-      val = elem["value"]["uint"];
-    }
-    res[key] = val;
-  }
-  return res;
 }
 
 export function getPoolTypeFromInternalState(

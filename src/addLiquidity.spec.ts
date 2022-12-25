@@ -2,7 +2,8 @@ import algosdk from "algosdk";
 
 import { LiquidityAddition } from "./addLiquidity";
 import { Pool, PoolType } from "./pool";
-import { addLiquidity, makeFreshTestBed, signAndSend } from "./testUtils";
+import { addLiquidity, makeFreshPoolTestbed } from "./testPoolUtils";
+import { signAndSend } from "./testUtils";
 
 async function testAddLiquidity(
   liquidityAddition: LiquidityAddition,
@@ -54,7 +55,7 @@ async function assertStableswapBonus(
 
 function swapTestCase(poolType: PoolType) {
   it("Empty pool add equal liquidity", async () => {
-    const { account, pool } = await makeFreshTestBed({
+    const { account, pool } = await makeFreshPoolTestbed({
       poolType: poolType,
     });
     const [primaryAssetAmount, secondaryAssetAmount] = [10_000, 10_000];
@@ -71,7 +72,7 @@ function swapTestCase(poolType: PoolType) {
   });
 
   it("Empty pool add not equal liquidity", async () => {
-    const { account, pool } = await makeFreshTestBed({
+    const { account, pool } = await makeFreshPoolTestbed({
       poolType: poolType,
     });
     const [primaryAssetAmount, secondaryAssetAmount] = [30_000, 10_000];
@@ -88,7 +89,7 @@ function swapTestCase(poolType: PoolType) {
   });
 
   it("Not an empty pool add equal liquidity", async () => {
-    const { account, pool } = await makeFreshTestBed({
+    const { account, pool } = await makeFreshPoolTestbed({
       poolType: poolType,
     });
 
@@ -105,7 +106,7 @@ function swapTestCase(poolType: PoolType) {
   });
 
   it("Not an empty pool add not equal liquidity", async () => {
-    const { account, pool } = await makeFreshTestBed({
+    const { account, pool } = await makeFreshPoolTestbed({
       poolType: poolType,
     });
 
@@ -130,7 +131,7 @@ describe("stableswap add liquidity", () => {
   swapTestCase("STABLESWAP");
 
   it("Add only primary asset", async () => {
-    const { account, pool } = await makeFreshTestBed({
+    const { account, pool } = await makeFreshPoolTestbed({
       poolType: "STABLESWAP",
     });
 
@@ -147,7 +148,7 @@ describe("stableswap add liquidity", () => {
   });
 
   it("Add only secondary asset", async () => {
-    const { account, pool } = await makeFreshTestBed({
+    const { account, pool } = await makeFreshPoolTestbed({
       poolType: "STABLESWAP",
     });
 
@@ -167,7 +168,7 @@ describe("stableswap add liquidity", () => {
   });
 
   it("Add with a positive bonus", async () => {
-    const { account, pool } = await makeFreshTestBed({
+    const { account, pool } = await makeFreshPoolTestbed({
       poolType: "STABLESWAP",
     });
 
@@ -187,7 +188,7 @@ describe("stableswap add liquidity", () => {
   });
 
   it("pool liquidity too low to cover fee", async () => {
-    const { account, pool } = await makeFreshTestBed({
+    const { account, pool } = await makeFreshPoolTestbed({
       poolType: "STABLESWAP",
       feeBps: 1000,
     });

@@ -2,9 +2,7 @@ import { exec } from "child_process";
 
 import algosdk from "algosdk";
 
-import { Asset } from "./asset";
-import { PactClient } from "./client";
-import { Pool, PoolType } from "./pool";
+import { encode } from "./encoding";
 import { TransactionGroup } from "./transactionGroup";
 
 export const ROOT_ACCOUNT = algosdk.mnemonicToSecretKey(
@@ -33,100 +31,45 @@ export async function createAsset(
 ): Promise<number> {
   const suggestedParams = await algod.getTransactionParams().do();
 
-  const txn = algosdk.makeAssetCreateTxnWithSuggestedParams(
-    account.addr,
-    undefined, // note
-    BigInt(totalIssuance),
+  const txn = algosdk.makeAssetCreateTxnWithSuggestedParamsFromObject({
+    from: account.addr,
+    total: BigInt(totalIssuance),
     decimals,
-    false, // defaultFrozen
-    account.addr, // manager
-    account.addr, // reserve
-    account.addr, // freeze
-    account.addr, // clawback
-    name, // unitName
-    name, // assetName
-    "", // assetURL
-    "", // assetMetadataHash
+    manager: account.addr,
+    reserve: account.addr,
+    clawback: account.addr,
+    freeze: account.addr,
+    assetName: name,
+    unitName: name,
+    defaultFrozen: false,
     suggestedParams,
-  );
+  });
 
   const tx = await signAndSend(txn, account);
   const ptx = await algod.pendingTransactionInformation(tx.txId).do();
   return ptx["asset-index"];
 }
 
-export function deployExchangeContract(
-  account: algosdk.Account,
-  primaryAssetIndex: number,
-  secondaryAssetIndex: number,
-  options: {
-    feeBps?: number;
-    version?: number;
-  } = {},
-) {
-  return deployContract(
-    account,
-    "CONSTANT_PRODUCT",
-    primaryAssetIndex,
-    secondaryAssetIndex,
-    options,
-  );
-}
-
-export function deployStableswapContract(
-  account: algosdk.Account,
-  primaryAssetIndex: number,
-  secondaryAssetIndex: number,
-  options: {
-    feeBps?: number;
-    pactFeeBps?: number;
-    amplifier?: number;
-    version?: number;
-  } = {},
-) {
-  return deployContract(
-    account,
-    "STABLESWAP",
-    primaryAssetIndex,
-    secondaryAssetIndex,
-    options,
-  );
-}
-
 export function deployContract(
   account: algosdk.Account,
-  poolType: PoolType,
-  primaryAssetIndex: number,
-  secondaryAssetIndex: number,
-  options: {
-    feeBps?: number;
-    pactFeeBps?: number;
-    amplifier?: number;
-    version?: number;
-  } = {},
+  command: string[],
 ): Promise<number> {
   const mnemonic = algosdk.secretKeyToMnemonic(account.sk);
 
-  // Add version if exists
-  let command = `cd algorand-testbed && \\
-  ALGOD_URL=http://localhost:8787 \\
-  ALGOD_TOKEN=8cec5f4261a2b5ad831a8a701560892cabfe1f0ca00a22a37dee3e1266d726e3 \\
-  DEPLOYER_MNEMONIC="${mnemonic}" \\
-  poetry run python scripts/deploy.py \\
-  --contract-type=${poolType.toLowerCase()} \\
-  --primary_asset_id=${primaryAssetIndex} \\
-  --secondary_asset_id=${secondaryAssetIndex} \\
-  --fee_bps=${options.feeBps ?? 30} \\
-  --pact_fee_bps=${options.pactFeeBps ?? 0} \\
-  --amplifier=${(options.amplifier ?? 80) * 1000} \\
-  --admin_and_treasury_address=${account.addr}`;
-
-  command = options.version
-    ? command + ` --version=${options.version}`
-    : command;
+  command = [
+    "cd algorand-testbed &&",
+    "ALGOD_URL=http://localhost:8787",
+    "ALGOD_TOKEN=8cec5f4261a2b5ad831a8a701560892cabfe1f0ca00a22a37dee3e1266d726e3",
+    `DEPLOYER_MNEMONIC="${mnemonic}"`,
+    "poetry",
+    "run",
+    "python",
+    "scripts/deploy.py",
+    ...command,
+  ];
 
   return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
+    exec(command.join(" "), (error, stdout, stderr) => {
       if (error) {
         reject(error.message);
         return;
@@ -135,7 +78,7 @@ export function deployContract(
         reject(stderr);
         return;
       }
-      const idRegex = /EC ID: (\d+)/;
+      const idRegex = /APP ID: (\d+)/;
       const match = idRegex.exec(stdout);
       if (!match) {
         reject("Can't find app id in std out.");
@@ -145,24 +88,6 @@ export function deployContract(
       resolve(parseInt(match[1]));
     });
   });
-}
-
-export async function addLiquidity(
-  account: algosdk.Account,
-  pool: Pool,
-  primaryAssetAmount = 10_000,
-  secondaryAssetAmount = 10_000,
-) {
-  const optInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
-  await signAndSend(optInTx, account);
-
-  const liquidityAddition = pool.prepareAddLiquidity({
-    primaryAssetAmount,
-    secondaryAssetAmount,
-  });
-  const addLiqTxGroup = await liquidityAddition.prepareTxGroup(account.addr);
-  await signAndSend(addLiqTxGroup, account);
-  await pool.updateState();
 }
 
 export async function newAccount() {
@@ -186,46 +111,35 @@ export async function fundAccountWithAlgos(
   await signAndSend(tx, ROOT_ACCOUNT);
 }
 
-export type TestBed = {
-  account: algosdk.Account;
-  pact: PactClient;
-  algo: Asset;
-  coin: Asset;
-  pool: Pool;
-};
+export async function deployGasStation() {
+  const gasStationId = await deployContract(ROOT_ACCOUNT, ["gas-station"]);
+  const suggestedParams = await algod.getTransactionParams().do();
+  const tx = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+    from: ROOT_ACCOUNT.addr,
+    to: algosdk.getApplicationAddress(gasStationId),
+    amount: 100_000,
+    suggestedParams,
+  });
+  await signAndSend(tx, ROOT_ACCOUNT);
 
-export async function makeFreshTestBed(
-  options: {
-    poolType?: PoolType;
-    feeBps?: number;
-    pactFeeBps?: number;
-    amplifier?: number;
-    version?: number;
-  } = {},
-): Promise<TestBed> {
-  const account = await newAccount();
-  const pact = new PactClient(algod);
+  return gasStationId;
+}
 
-  const algo = await pact.fetchAsset(0);
-  const coinIndex = await createAsset(account);
-  const coin = await pact.fetchAsset(coinIndex);
+export async function waitRounds(rounds: number, account: algosdk.Account) {
+  const suggestedParams = await algod.getTransactionParams().do();
+  for (let i = 0; i < rounds; i++) {
+    const tx = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+      from: account.addr,
+      to: account.addr,
+      amount: 0,
+      suggestedParams,
+      note: encode(i.toString()),
+    });
+    await signAndSend(tx, account);
+  }
+}
 
-  const poolType = options.poolType ?? "CONSTANT_PRODUCT";
-
-  const appId = await deployContract(
-    account,
-    poolType,
-    algo.index,
-    coin.index,
-    {
-      feeBps: options.feeBps,
-      pactFeeBps: options.pactFeeBps,
-      amplifier: options.amplifier,
-      version: options.version,
-    },
-  );
-
-  const pool = await pact.fetchPoolById(appId);
-
-  return { account, pact, algo, coin, pool };
+export async function getLastBlock() {
+  const statusData = await algod.status().do();
+  return statusData["last-round"];
 }

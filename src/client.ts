@@ -3,6 +3,7 @@ import algosdk from "algosdk";
 import { ApiListPoolsResponse, ListPoolsOptions, listPools } from "./api";
 import { Asset, fetchAssetByIndex } from "./asset";
 import { PactSdkError } from "./exceptions";
+import { PactFarmingClient } from "./farming";
 import { Pool, fetchPoolById, fetchPoolsByAssets } from "./pool";
 import { NewPoolParams, PoolCreator } from "./poolCreator";
 
@@ -50,6 +51,8 @@ export class PactClient {
    */
   pactApiUrl: string;
 
+  farming: PactFarmingClient;
+
   /**
    * @param algod Algorand client to work with.
    * @param options Client configuration options.
@@ -57,6 +60,7 @@ export class PactClient {
   constructor(algod: algosdk.Algodv2, options: ClientOptions = {}) {
     this.algod = algod;
     this.pactApiUrl = options.pactApiUrl ?? "https://api.pact.fi";
+    this.farming = new PactFarmingClient(algod);
   }
 
   /**

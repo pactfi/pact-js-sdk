@@ -7,14 +7,11 @@ import { StableswapCalculator } from "./stableswapCalculator";
 import { Swap } from "./swap";
 import {
   addLiquidity,
-  algod,
-  createAsset,
-  deployExchangeContract,
+  deployConstantProductContract,
   deployStableswapContract,
-  makeFreshTestBed,
-  newAccount,
-  signAndSend,
-} from "./testUtils";
+  makeFreshPoolTestbed,
+} from "./testPoolUtils";
+import { algod, createAsset, newAccount, signAndSend } from "./testUtils";
 import { TransactionGroup } from "./transactionGroup";
 
 async function testSwap(swap: Swap, account: algosdk.Account) {
@@ -80,7 +77,7 @@ function assertSwapEffect(
 
 function swapTestCase(poolType: PoolType) {
   it("empty liquidity", async () => {
-    const { algo, pool } = await makeFreshTestBed({ poolType: poolType });
+    const { algo, pool } = await makeFreshPoolTestbed({ poolType: poolType });
 
     expect(() =>
       pool.prepareSwap({
@@ -92,7 +89,7 @@ function swapTestCase(poolType: PoolType) {
   });
 
   it("asset not in the pool", async () => {
-    const { pact, pool, account } = await makeFreshTestBed({
+    const { pact, pool, account } = await makeFreshPoolTestbed({
       poolType: poolType,
     });
     const shitcoinIndex = await createAsset(account);
@@ -108,7 +105,7 @@ function swapTestCase(poolType: PoolType) {
   });
 
   it("primary with equal liquidity", async () => {
-    const { account, algo, coin, pool } = await makeFreshTestBed({
+    const { account, algo, coin, pool } = await makeFreshPoolTestbed({
       poolType: poolType,
     });
     const [primaryLiq, secondaryLiq, amount] = [10_000, 10_000, 1_000];
@@ -128,7 +125,7 @@ function swapTestCase(poolType: PoolType) {
   });
 
   it("primary with not equal liquidity", async () => {
-    const { account, algo, pool } = await makeFreshTestBed({
+    const { account, algo, pool } = await makeFreshPoolTestbed({
       poolType: poolType,
     });
     const [primaryLiq, secondaryLiq, amount] = [20_000, 25_000, 1_000];
@@ -144,7 +141,7 @@ function swapTestCase(poolType: PoolType) {
   });
 
   it("secondary with equal liquidity", async () => {
-    const { account, coin, pool } = await makeFreshTestBed({
+    const { account, coin, pool } = await makeFreshPoolTestbed({
       poolType: poolType,
     });
     const [primaryLiq, secondaryLiq, amount] = [20_000, 20_000, 1_000];
@@ -160,7 +157,7 @@ function swapTestCase(poolType: PoolType) {
   });
 
   it("secondary with not equal liquidity", async () => {
-    const { account, coin, pool } = await makeFreshTestBed({
+    const { account, coin, pool } = await makeFreshPoolTestbed({
       poolType: poolType,
     });
     const [primaryLiq, secondaryLiq, amount] = [25_000, 20_000, 1_000];
@@ -176,8 +173,11 @@ function swapTestCase(poolType: PoolType) {
   });
 
   it("with custom fee bps", async () => {
-    const TestBedA = await makeFreshTestBed({ poolType: poolType, feeBps: 10 });
-    const TestBedB = await makeFreshTestBed({
+    const TestBedA = await makeFreshPoolTestbed({
+      poolType: poolType,
+      feeBps: 10,
+    });
+    const TestBedB = await makeFreshPoolTestbed({
       poolType: poolType,
       feeBps: 2000,
     });
@@ -224,7 +224,7 @@ function swapTestCase(poolType: PoolType) {
   });
 
   it("with different slippage", async () => {
-    const { account, algo, pool } = await makeFreshTestBed({
+    const { account, algo, pool } = await makeFreshPoolTestbed({
       poolType: poolType,
     });
     await addLiquidity(account, pool, 20_000, 20_000);
@@ -329,7 +329,7 @@ function swapTestCase(poolType: PoolType) {
   });
 
   it("swap for exact primary with equal liquidity", async () => {
-    const { account, algo, coin, pool } = await makeFreshTestBed({
+    const { account, algo, coin, pool } = await makeFreshPoolTestbed({
       poolType: poolType,
     });
     const [primaryLiq, secondaryLiq, amount] = [20_000, 20_000, 1_000];
@@ -364,7 +364,7 @@ function swapTestCase(poolType: PoolType) {
   });
 
   it("swap for exact primary with not equal liquidity", async () => {
-    const { account, algo, pool } = await makeFreshTestBed({
+    const { account, algo, pool } = await makeFreshPoolTestbed({
       poolType: poolType,
     });
     const [primaryLiq, secondaryLiq, amount] = [15_000, 25_000, 2_000];
@@ -395,7 +395,7 @@ function swapTestCase(poolType: PoolType) {
   });
 
   it("swap for exact liquidity surpassed", async () => {
-    const { account, algo, pool } = await makeFreshTestBed({
+    const { account, algo, pool } = await makeFreshPoolTestbed({
       poolType: poolType,
     });
     await addLiquidity(account, pool, 25_000, 15_000);
@@ -424,7 +424,7 @@ function swapTestCase(poolType: PoolType) {
 
   it("swap and optin in a single group", async () => {
     const otherAccount = await newAccount();
-    const { pact, account, coin, algo, pool } = await makeFreshTestBed({
+    const { pact, account, coin, algo, pool } = await makeFreshPoolTestbed({
       poolType,
     });
     const [primaryLiq, secondaryLiq, amount] = [20_000, 20_000, 1_000];
@@ -462,7 +462,11 @@ describe("constant product swap", () => {
     const coinAIndex = await createAsset(account, "COIN_A", 3);
     const coinBIndex = await createAsset(account, "COIN_B", 2);
 
-    const appId = await deployExchangeContract(account, coinAIndex, coinBIndex);
+    const appId = await deployConstantProductContract(
+      account,
+      coinAIndex,
+      coinBIndex,
+    );
     const pool = await pact.fetchPoolById(appId);
 
     await addLiquidity(account, pool, 20_000, 20_000);
@@ -489,7 +493,7 @@ describe("stable swap", () => {
   swapTestCase("STABLESWAP");
 
   it("changing amplifier", async () => {
-    const { pool } = await makeFreshTestBed({
+    const { pool } = await makeFreshPoolTestbed({
       poolType: "STABLESWAP",
       amplifier: 10,
     });
@@ -571,7 +575,7 @@ describe("stable swap", () => {
   });
 
   it("swap with big amplifier", async () => {
-    const { account, pool, algo } = await makeFreshTestBed({
+    const { account, pool, algo } = await makeFreshPoolTestbed({
       poolType: "STABLESWAP",
       amplifier: 200,
     });

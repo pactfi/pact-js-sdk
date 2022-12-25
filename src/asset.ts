@@ -1,5 +1,31 @@
 import algosdk from "algosdk";
 
+import { encode } from "./encoding";
+
+export function getCachedAsset(
+  algod: algosdk.Algodv2,
+  index: number,
+  decimals: number,
+): Asset {
+  if (Asset.assetsCache[index]) {
+    return Asset.assetsCache[index];
+  }
+
+  const asset = new Asset(algod, index);
+  asset.decimals = decimals;
+  return asset;
+}
+
+export function getAlgo(algod: algosdk.Algodv2) {
+  const asset = new Asset(algod, 0);
+  asset.name = "Algo";
+  asset.unitName = "ALGO";
+  asset.decimals = 6;
+  asset.ratio = 10 ** asset.decimals;
+  Asset.assetsCache[asset.index] = asset;
+  return asset;
+}
+
 /**
  * Fetches an [[Asset]] class with the details about the asset for a given id number.
  *
@@ -19,17 +45,12 @@ export async function fetchAssetByIndex(
     return Asset.assetsCache[index];
   }
 
-  let params: any;
-  if (index > 0) {
-    const assetInfo = await algod.getAssetByID(index).do();
-    params = assetInfo.params;
-  } else {
-    params = {
-      name: "Algo",
-      "unit-name": "ALGO",
-      decimals: 6,
-    };
+  if (index === 0) {
+    return getAlgo(algod);
   }
+
+  const assetInfo = await algod.getAssetByID(index).do();
+  const params = assetInfo.params;
 
   const asset = new Asset(algod, index);
   asset.name = params.name;
@@ -130,6 +151,26 @@ export class Asset {
     });
   }
 
+  async prepareOptOutTx(address: string, closeTo: string) {
+    const suggestedParams = await this.algod.getTransactionParams().do();
+    return this.buildOptOutTx(address, closeTo, suggestedParams);
+  }
+
+  buildOptOutTx(
+    address: string,
+    closeTo: string,
+    suggestedParams: algosdk.SuggestedParams,
+  ) {
+    return algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+      from: address,
+      to: address,
+      closeRemainderTo: closeTo,
+      amount: 0,
+      assetIndex: this.index,
+      suggestedParams,
+    });
+  }
+
   /**
    * Checks if the account is already able to hold this asset, that is it has already opted in.
    *
@@ -163,11 +204,43 @@ export class Asset {
    * @returns The amount of asset or null if the account is not opted into the asset.
    */
   getHoldingFromAccountInformation(accountInformation: any): number | null {
+    if (this.index === 0) {
+      return accountInformation.amount;
+    }
+
     for (const asset of accountInformation.assets) {
       if (asset["asset-id"] === this.index) {
         return asset.amount;
       }
     }
     return null;
+  }
+
+  buildTransferTx(
+    sender: string,
+    receiver: string,
+    amount: number,
+    suggestedParams: algosdk.SuggestedParams,
+    note = "",
+  ): algosdk.Transaction {
+    if (this.index === 0) {
+      // ALGO
+      return algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+        from: sender,
+        to: receiver,
+        amount,
+        note: encode(note),
+        suggestedParams,
+      });
+    }
+
+    return algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+      from: sender,
+      to: receiver,
+      amount,
+      note: encode(note),
+      suggestedParams,
+      assetIndex: this.index,
+    });
   }
 }
