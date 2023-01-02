@@ -71,10 +71,12 @@ export function getSecondaryAddedLiquidityFromZapping(
   totalSecondary: bigint,
   feeBps: bigint,
 ): bigint {
-  return (
-    (swapDeposited * totalSecondary * (FEE_PRECISION - feeBps)) /
-    ((totalPrimary + swapDeposited) * FEE_PRECISION)
+  const y = getSwapAmountWithoutTax(
+    swapDeposited,
+    totalPrimary,
+    totalSecondary,
   );
+  return (y * (FEE_PRECISION - feeBps)) / FEE_PRECISION;
 }
 export function getSwapAmountWithoutTax(
   swapDeposited: bigint,
@@ -201,21 +203,25 @@ export class Zap {
 
   prepareAddLiq() {
     // Minted liquidity tokens need to be calculated based on the state after the swap.
-    const y = getSwapAmountWithoutTax(
+    const [totalA, totalB] = this.pool.calculator.getLiquidities(this.asset);
+    const swapAmountWithoutTax = getSwapAmountWithoutTax(
       BigInt(this.swap.amount),
-      BigInt(this.pool.state.totalPrimary),
-      BigInt(this.pool.state.totalSecondary),
+      BigInt(totalA),
+      BigInt(totalB),
     );
     const pactFeeAmount =
-      (y * BigInt(this.pool.params.pactFeeBps)) / FEE_PRECISION;
+      (swapAmountWithoutTax * BigInt(this.pool.params.pactFeeBps)) /
+      FEE_PRECISION;
     const updatedState = { ...this.pool.state };
     if (this.isAssetPrimary()) {
       updatedState.totalPrimary += Number(this.params.swapDeposited);
+      // There is a small rounding error in many transactions. Substracting 1 solves this problem.
       updatedState.totalSecondary -=
-        Number(this.params.secondaryAddLiq) + Number(pactFeeAmount);
+        Number(this.params.secondaryAddLiq + 1n) + Number(pactFeeAmount);
     } else {
+      // There is a small rounding error in many transactions. Substracting 1 solves this problem.
       updatedState.totalPrimary -=
-        Number(this.params.primaryAddLiq) + Number(pactFeeAmount);
+        Number(this.params.primaryAddLiq + 1n) + Number(pactFeeAmount);
       updatedState.totalSecondary += Number(this.params.swapDeposited);
     }
 

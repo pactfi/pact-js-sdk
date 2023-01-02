@@ -198,6 +198,7 @@ export async function makeFreshTestBed(
   options: {
     poolType?: PoolType;
     feeBps?: number;
+    pactFeeBps?: number;
     amplifier?: number;
     version?: number;
   } = {},
@@ -218,6 +219,7 @@ export async function makeFreshTestBed(
     coin.index,
     {
       feeBps: options.feeBps,
+      pactFeeBps: options.pactFeeBps,
       amplifier: options.amplifier,
       version: options.version,
     },
