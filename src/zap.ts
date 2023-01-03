@@ -47,7 +47,7 @@ export function getSwapAmountDepositedFromZapping(
   pactFeeBps: bigint,
 ): bigint {
   const poolFee = feeBps - pactFeeBps;
-  const a = (-1n * FEE_PRECISION - poolFee + feeBps) / FEE_PRECISION;
+  const a = pactFeeBps - FEE_PRECISION;
   const b =
     (-2n * totalAmount * FEE_PRECISION +
       zapAmount * poolFee +
@@ -55,10 +55,10 @@ export function getSwapAmountDepositedFromZapping(
     FEE_PRECISION;
   const c = totalAmount * zapAmount;
 
-  const delta = b * b - 4n * a * c;
+  const delta = b * b - (4n * a * c) / FEE_PRECISION;
   let result;
   if (b < 0) {
-    result = (-1n * b - isqrt(delta)) / (2n * a);
+    result = ((-1n * b - isqrt(delta)) * FEE_PRECISION) / (2n * a);
   } else {
     result = (2n * c) / (-1n * b + isqrt(delta));
   }
@@ -71,10 +71,19 @@ export function getSecondaryAddedLiquidityFromZapping(
   totalSecondary: bigint,
   feeBps: bigint,
 ): bigint {
-  return (
-    (swapDeposited * totalSecondary * (FEE_PRECISION - feeBps)) /
-    ((totalPrimary + swapDeposited) * FEE_PRECISION)
+  const y = getSwapAmountWithoutTax(
+    swapDeposited,
+    totalPrimary,
+    totalSecondary,
   );
+  return (y * (FEE_PRECISION - feeBps)) / FEE_PRECISION;
+}
+export function getSwapAmountWithoutTax(
+  swapDeposited: bigint,
+  totalPrimary: bigint,
+  totalSecondary: bigint,
+): bigint {
+  return (swapDeposited * totalSecondary) / (totalPrimary + swapDeposited);
 }
 
 /**
@@ -194,12 +203,25 @@ export class Zap {
 
   prepareAddLiq() {
     // Minted liquidity tokens need to be calculated based on the state after the swap.
+    const [totalA, totalB] = this.pool.calculator.getLiquidities(this.asset);
+    const swapAmountWithoutTax = getSwapAmountWithoutTax(
+      BigInt(this.swap.amount),
+      BigInt(totalA),
+      BigInt(totalB),
+    );
+    const pactFeeAmount =
+      (swapAmountWithoutTax * BigInt(this.pool.params.pactFeeBps)) /
+      FEE_PRECISION;
     const updatedState = { ...this.pool.state };
     if (this.isAssetPrimary()) {
       updatedState.totalPrimary += Number(this.params.swapDeposited);
-      updatedState.totalSecondary -= Number(this.params.secondaryAddLiq);
+      // There is a small rounding error in many transactions. Substracting 1 solves this problem.
+      updatedState.totalSecondary -=
+        Number(this.params.secondaryAddLiq + 1n) + Number(pactFeeAmount);
     } else {
-      updatedState.totalPrimary -= Number(this.params.primaryAddLiq);
+      // There is a small rounding error in many transactions. Substracting 1 solves this problem.
+      updatedState.totalPrimary -=
+        Number(this.params.primaryAddLiq + 1n) + Number(pactFeeAmount);
       updatedState.totalSecondary += Number(this.params.swapDeposited);
     }
 

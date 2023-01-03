@@ -234,7 +234,9 @@ export class PoolCreator {
       primary_asset__algoid: params.primary_asset_id,
       secondary_asset__algoid: params.secondary_asset_id,
     });
-    const isRepeated = pools.results.some((p) => p.fee_bps === params.fee_bps);
+    const isRepeated = pools.results
+      .filter((p) => !p.is_deprecated)
+      .some((p) => p.fee_bps === params.fee_bps);
     if (isRepeated) {
       throw new PactSdkError(
         "A pool with given assets and fee already exists.",
@@ -261,6 +263,7 @@ export class PoolCreator {
       lastRound: poolData.lv,
       name: "Transaction",
       type: poolData.type,
+      extraPages: poolData.apep || 1,
     } as any;
     return new algosdk.Transaction(tx);
   }
