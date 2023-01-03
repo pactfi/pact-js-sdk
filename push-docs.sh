@@ -11,6 +11,7 @@ mv docs "gh-pages/$version"
 
 cd gh-pages
 
+rm latest
 ln -s "$version" latest
 
 git add -A
