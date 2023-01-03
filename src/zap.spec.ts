@@ -11,6 +11,8 @@ describe("zap", () => {
   it("Calculates all zap params", async () => {
     const { pool, account } = await makeFreshTestBed({
       poolType: "CONSTANT_PRODUCT",
+      feeBps: 30,
+      pactFeeBps: 10,
     });
 
     await addLiquidity(account, pool, 100_000, 100_000);
@@ -27,6 +29,9 @@ describe("zap", () => {
       primaryAddLiq: 5112n,
       secondaryAddLiq: 4645n,
     });
+    expect(
+      zapPrimaryAdd.liquidityAddition.effect.mintedLiquidityTokens,
+    ).toEqual(4871);
 
     // Perform a zap using secondary asset.
     const zapSecondaryAdd = pool.prepareZap({
@@ -39,10 +44,15 @@ describe("zap", () => {
       primaryAddLiq: 4645n,
       secondaryAddLiq: 5112n,
     });
+    expect(
+      zapSecondaryAdd.liquidityAddition.effect.mintedLiquidityTokens,
+    ).toEqual(4871);
 
     // Perform a zap on unbalanced pool.
     const { pool: unbalancedPool, account: acc2 } = await makeFreshTestBed({
       poolType: "CONSTANT_PRODUCT",
+      feeBps: 30,
+      pactFeeBps: 10,
     });
 
     await addLiquidity(acc2, unbalancedPool, 100_000, 10_000);
@@ -53,11 +63,29 @@ describe("zap", () => {
       asset: unbalancedPool.secondaryAsset,
       slippagePct: 2,
     });
+
     expect(unbalancedZap.params).toEqual({
-      swapDeposited: 7339n,
-      primaryAddLiq: 42198n,
-      secondaryAddLiq: 12661n,
+      swapDeposited: 7336n,
+      primaryAddLiq: 42188n,
+      secondaryAddLiq: 12664n,
     });
+    expect(
+      unbalancedZap.liquidityAddition.effect.mintedLiquidityTokens,
+    ).toEqual(23093);
+
+    const unbalancedZapSecondary = unbalancedPool.prepareZap({
+      amount: 1_000_000,
+      asset: unbalancedPool.primaryAsset,
+      slippagePct: 2,
+    });
+    expect(unbalancedZapSecondary.params).toEqual({
+      swapDeposited: 232549n,
+      primaryAddLiq: 767451n,
+      secondaryAddLiq: 6970n,
+    });
+    expect(
+      unbalancedZapSecondary.liquidityAddition.effect.mintedLiquidityTokens,
+    ).toEqual(72909);
   });
 
   it("Validates pools and assets", async () => {
