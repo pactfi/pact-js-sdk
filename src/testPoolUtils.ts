@@ -109,6 +109,7 @@ export async function makeFreshPoolTestbed(
   options: {
     poolType?: PoolType;
     feeBps?: number;
+    pactFeeBps?: number;
     amplifier?: number;
     version?: number;
   } = {},
@@ -129,6 +130,7 @@ export async function makeFreshPoolTestbed(
     coin.index,
     {
       feeBps: options.feeBps,
+      pactFeeBps: options.pactFeeBps,
       amplifier: options.amplifier,
       version: options.version,
     },

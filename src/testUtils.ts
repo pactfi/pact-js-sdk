@@ -91,7 +91,6 @@ export function deployContract(
 }
 
 export async function newAccount() {
-  // Accounts has a limit of 10 apps and 100 assets. Therefore, we need to create a new account for most of the tests.
   const account = algosdk.generateAccount();
   await fundAccountWithAlgos(account, 10_000_000);
   return account;

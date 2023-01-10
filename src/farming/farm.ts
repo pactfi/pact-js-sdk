@@ -9,7 +9,12 @@ import { decodeUint64Array, encodeArray } from "../encoding";
 import { PactSdkError } from "../exceptions";
 import { getGasStation } from "../gasStation";
 import { mapToObject, parseState, spFee } from "../utils";
-import { Escrow, buildDeployEscrowTxs, fetchEscrowById } from "./escrow";
+import {
+  Escrow,
+  buildDeployEscrowTxs,
+  fetchEscrowApprovalProgram,
+  fetchEscrowById,
+} from "./escrow";
 import {
   FarmInternalState,
   FarmState,
@@ -22,7 +27,7 @@ import {
 } from "./farmState";
 
 const UPDATE_TX_FEE = 3000;
-const MAX_REWARD_ASSETS = 6;
+const MAX_REWARD_ASSETS = 7;
 
 // update_global_state()void
 const UPDATE_GLOBAL_STATE_SIG = new Uint8Array([53, 158, 130, 85]);
@@ -110,6 +115,33 @@ export class Farm {
     return this.state.stakedAsset;
   }
 
+  haveRewards(dt?: Date): boolean {
+    const state = this.state;
+
+    if (state.duration === 0) {
+      // Finished distributing rewards or there never were any rewards.
+      return false;
+    }
+
+    if (state.totalStaked === 0) {
+      // The farm is paused and still has rewards.
+      return true;
+    }
+
+    if (dt === undefined) {
+      dt = new Date();
+    }
+
+    const durationMs = (state.duration + state.nextDuration) * 1000;
+    if (dt < new Date(state.updatedAt.getTime() + durationMs)) {
+      // The farm is going and still has rewards.
+      return true;
+    }
+
+    // All the rewards will be distributed at the specified time.
+    return false;
+  }
+
   fetchEscrowById(appId: number): Promise<Escrow> {
     return fetchEscrowById(this.algod, appId, { farm: this });
   }
@@ -158,7 +190,7 @@ export class Farm {
     );
 
     return {
-      escrowId: rawState["MicroFarmID"],
+      escrowId: rawState["EscrowID"],
       staked: rawState["Staked"],
       accruedRewards: formatRewards(
         this.state.rewardAssets,
@@ -188,6 +220,7 @@ export class Farm {
     );
 
     const rewards = this.sumRewards(estimatedRewards, userState.accruedRewards);
+
     return this.sumRewards(rewards, pastAccruedRewards);
   }
 
@@ -196,6 +229,7 @@ export class Farm {
       atTime,
       stakedAmount,
       this.state.totalStaked + stakedAmount,
+      { extrapolateFutureRewards: true },
     );
   }
 
@@ -203,10 +237,8 @@ export class Farm {
     atTime: Date,
     stakedAmount: number,
     totalStaked: number,
+    options: { extrapolateFutureRewards?: boolean } = {},
   ): FarmingRewards {
-    // TODO missing in contract.
-    // atTime = min(atTime, this.state.deprecated_at)
-
     let duration =
       Math.floor(atTime.getTime() - this.state.updatedAt.getTime()) / 1000;
 
@@ -245,10 +277,19 @@ export class Farm {
       }
     }
 
+    if (!options.extrapolateFutureRewards) {
+      return rewards;
+    }
+
+    const nextDuration = this.state.nextDuration || this.state.duration;
+    if (nextDuration === 0) {
+      return rewards;
+    }
+
     const nextRewards = this.state.nextDuration
       ? this.state.nextRewards
       : this.state.pendingRewards;
-    const nextDuration = this.state.nextDuration || this.state.duration;
+
     const nextNextRewards = mapToObject(
       Object.entries(nextRewards),
       (assetAndAmount) => {
@@ -266,7 +307,6 @@ export class Farm {
       duration,
       duration,
     );
-
     return this.sumRewards(rewards, rewards_c);
   }
 
@@ -275,7 +315,11 @@ export class Farm {
     rewards: FarmingRewards,
     stakeDuration: number,
     cycleDuration: number,
-  ) {
+  ): FarmingRewards {
+    if (cycleDuration === 0) {
+      return mapToObject(this.state.rewardAssets, (asset) => [asset.index, 0]);
+    }
+
     stakeDuration = Math.min(stakeDuration, cycleDuration);
 
     return mapToObject(this.state.rewardAssets, (asset) => [
@@ -292,7 +336,10 @@ export class Farm {
     return mapToObject(this.state.rewardAssets, (asset) => [
       asset.index,
       Math.floor(
-        (this.state.rpt[asset.index] ?? 0) - (userRpt[asset.index] ?? 0),
+        Math.max(
+          0,
+          (this.state.rpt[asset.index] ?? 0) - (userRpt[asset.index] ?? 0),
+        ),
       ) * stakedAmount,
     ]);
   }
@@ -307,31 +354,61 @@ export class Farm {
     ]);
   }
 
-  buildDeployEscrowTxs(sender: string): algosdk.Transaction[] {
+  async prepareDeployEscrowTxs(sender: string): Promise<algosdk.Transaction[]> {
+    const approvalProgram = await fetchEscrowApprovalProgram(
+      this.algod,
+      this.appId,
+    );
+    return this.buildDeployEscrowTxs(sender, approvalProgram);
+  }
+
+  buildDeployEscrowTxs(
+    sender: string,
+    approvalProgram: Uint8Array,
+  ): algosdk.Transaction[] {
     return buildDeployEscrowTxs(
       sender,
       this.appId,
       this.stakedAsset.index,
+      approvalProgram,
       this.suggestedParams,
     );
   }
 
-  buildUpdateIncreaseOpcodeQuotaTx(sender: string) {
+  buildUpdateIncreaseOpcodeQuotaTx(sender: string): algosdk.Transaction | null {
+    const secondsPassed = Math.floor(
+      (new Date().getTime() - this.state.updatedAt.getTime()) / 1000,
+    );
+    const opcodesCost =
+      secondsPassed > this.state.duration && this.state.duration > 0
+        ? 671
+        : 513;
+    const count = Math.floor(
+      (opcodesCost * this.state.rewardAssets.length) / 700,
+    );
+    if (count === 0) {
+      return null;
+    }
+
     return getGasStation().buildIncreaseOpcodeQuotaTx(
       sender,
-      4,
+      count,
       this.suggestedParams,
     );
   }
 
   buildUpdateWithOpcodeIncreaseTxs(escrow: Escrow): algosdk.Transaction[] {
+    const txs = [this.buildUpdateTx(escrow)];
+
     const increaseOpcodeQuotaTx = this.buildUpdateIncreaseOpcodeQuotaTx(
       escrow.userAddress,
     );
 
-    const updateTx = this.buildUpdateTx(escrow);
+    if (increaseOpcodeQuotaTx) {
+      txs.unshift(increaseOpcodeQuotaTx);
+    }
 
-    return [increaseOpcodeQuotaTx, updateTx];
+    return txs;
   }
 
   buildUpdateTx(escrow: Escrow): algosdk.Transaction {

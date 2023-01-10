@@ -14,7 +14,6 @@ export type FarmInternalState = {
   nextRewards: number[];
   rptFrac: number[];
   rpt: number[];
-  deprecatedAt: number;
   duration: number;
   nextDuration: number;
   numStakers: number;
@@ -22,6 +21,7 @@ export type FarmInternalState = {
   updatedAt: number;
   admin: string;
   updater: string;
+  version: number;
 };
 
 export type FarmState = {
@@ -61,14 +61,14 @@ export type FarmState = {
   /** The time the farm was last updated.*/
   updatedAt: Date;
 
-  /** The Time after which the farm can be destroyed by the admin.*/
-  deprecatedAt: Date;
-
   /** The address of the farm's admin account. The admin can deposit new rewards and destroy the farm after it is deprecated.*/
   admin: string;
 
   /** The address of farm's updater. The updater can update the farm's contract to a new version.*/
   updater: string;
+
+  /** Contract version. */
+  version: number;
 };
 
 export type FarmUserState = {
@@ -91,7 +91,6 @@ export type FarmUserState = {
 export function parseInternalState(rawState: any): FarmInternalState {
   return {
     claimedRewards: decodeUint64Array(rawState["ClaimedRewards"]),
-    deprecatedAt: rawState["DeprecatedAt"],
     duration: rawState["Duration"],
     nextDuration: rawState["NextDuration"],
     nextRewards: decodeUint64Array(rawState["NextRewards"]),
@@ -106,6 +105,7 @@ export function parseInternalState(rawState: any): FarmInternalState {
     updatedAt: rawState["UpdatedAt"],
     admin: decodeAddressFromGlobalState(rawState["Admin"]),
     updater: decodeAddressFromGlobalState(rawState["Updater"]),
+    version: rawState["VERSION"],
   };
 }
 
@@ -137,9 +137,9 @@ export function internalStateToState(
     numStakers: internalState.numStakers,
     totalStaked: internalState.totalStaked,
     updatedAt: new Date(internalState.updatedAt * 1000),
-    deprecatedAt: new Date(internalState.deprecatedAt * 1000),
     admin: internalState.admin,
     updater: internalState.updater,
+    version: internalState.version,
   };
 }
 

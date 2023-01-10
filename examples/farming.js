@@ -19,7 +19,7 @@ const account = algosdk.mnemonicToSecretKey('<mnemonic>');
       // Deploy escrow.
       await farm.refreshSuggestedParams()
 
-      const deployTxs = farm.buildDeployEscrowTxs(address);
+      const deployTxs = farm.prepareDeployEscrowTxs(address);
       const signedDeployTxs = pactsdk.TransactionGroup(deployTxs).signTxn(account.sk);
       await algod.sendRawTransaction(signedDeployTxs).do();
 

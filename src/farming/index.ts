@@ -4,8 +4,8 @@ export {
   buildDeployEscrowTxs,
   fetchEscrowById,
   fetchEscrowGlobalState,
-  listEscrowsFromAccountInfo,
   parseGlobalEscrowState,
+  fetchEscrowApprovalProgram,
 } from "./escrow";
 export {
   Farm,

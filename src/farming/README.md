@@ -6,7 +6,7 @@ Pact utilizes an innovative architecture for farming called "micro farming". The
 
 **Escrow** - contract resposible for staking user tokens. Each user deploys his own escrow. It acts as a user's private escrow address.
 
-The main benefit of the micro farming architecture is that the user has very strong guarantees of his funds safety. The escrow contract is very simple and easy to understand/audit. Only the user has access to funds deposited in the escrow and he can withdraw them at any moment. This is achieved with the Algorand's rekey mechanism.
+The main benefit of the micro farming architecture is that the user has very strong guarantees of his funds safety. The escrow contract is very simple and easy to understand/audit. Only the user has access to funds deposited in the escrow and he can withdraw them at any moment.
 
 Any potential bugs or exploits in the farm do not threaten the safety of user funds. In worst case scenario the user can lose the accrued rewards.
 
@@ -41,7 +41,7 @@ farm = escrow.farm
 ```js
 await farm.refreshSuggestedParams()
 
-const deployTxs = farm.buildDeployEscrowTxs(userAddress)
+const deployTxs = farm.prepareDeployEscrowTxs(userAddress)
 await signSendAndWait(pactsdk.TransactionGroup(deployTxs), userPrivateKey)
 
 const txinfo = await algod.pendingTransactionInformation(deployTxs[1].txID()).do()
@@ -49,28 +49,6 @@ const escrowId = txinfo["application-index"]
 
 const escrow = await farm.fetchEscrowById(escrowId)
 await escrow.refreshSuggestedParams()
-```
-
-## How to find all escrows the user posses?
-
-This fetches the account info and retrieves all apps matching the Escrow's approval program. It also fetches the accompanying farms.
-
-```js
-const escrows = await pact.farming.listEscrows(userAddress)
-```
-
-If you already have the farms fetched, you can provide them as an argument. This will save you the extra algod requests to fetch the farms.
-
-```js
-const escrows = await pact.farming.listEscrows(userAddress, {farms})
-```
-
-If you already have the account info and the farms fetched, you can list the escrows like below. This will not perform any algod requests and will return immediately.
-
-```js
-const accountInfo = await algod.accountInformation(userAddress).do()
-...
-const escrows = await pact.farming.listEscrowsFromAccountInfo(userAddress, accountInfo, {farms})
 ```
 
 ## How to check farm's state?
@@ -153,17 +131,10 @@ First, you must rekey the escrow to your account, then perform any transactions 
 The SDK comes with a handy context manager that builds the transactions in the correct order for you.
 
 ```js
-function buildGovernanceCommitTx(address, amount) {
-  // User custom code.
-  ...
-}
-
-const txs = escrow.rekey(txs => {
-  govTx = buildGovernanceCommitTx(escrow.address, 1000)
-  txs.push(govTx)
-})
-
-await signSendAndWait(new pactsdk.TransactionGroup(txs), userPrivateKey)
+const sendMessageTx = escrow.buildSendMessageTx(
+    sender, "some message required by the Foundation"
+)
+await signSendAndWait(sendMessageTx, sender, userPrivateKey)
 ```
 
 ## How to destroy the escrow / regain access to staked funds in case of emergency?
@@ -171,6 +142,19 @@ await signSendAndWait(new pactsdk.TransactionGroup(txs), userPrivateKey)
 The following code will close out the contract, transfer all algos and staked tokens to the user address, and delete the application.
 
 ```js
-const deleteTxs = escrow.buildDeleteAndClearTxs()
-await signSendAndWait(new pactsdk.TransactionGroup(deleteTxs), userPrivateKey)
+// Exit the farm.
+// This will claim all staked tokens and algos locked in the escrow back to the user account and delete the escrow.
+// It requires all the rewards to bo claimed, fails otherwise.
+const exitTx = escrow.buildExitTx()
+const deleteTx = escrow.buildDeleteTx()
+const exitAndDeleteGroup = new pactsdk.TransactionGroup([exitTx, deleteTx])
+await signSendAndWait(exitAndDeleteGroup, userPrivateKey)
+
+// Force exit the farm.
+// Claim all the rewards before exiting from the farm or you will lose your rewards.
+// This will claim all staked tokens and algos locked in the escrow back to the user account and delete the escrow.
+const exitTx = escrow.buildForceExitTx()
+const deleteTx = escrow.buildDeleteTx()
+const exitAndDeleteGroup = pactsdk.TransactionGroup([exitTx, deleteTx])
+await signSendAndWait(exitAndDeleteGroup, userPrivateKey)
 ```

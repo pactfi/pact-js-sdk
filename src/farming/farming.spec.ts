@@ -15,7 +15,6 @@ import {
 import { TransactionGroup } from "../transactionGroup";
 import { Escrow } from "./escrow";
 import {
-  deployEscrowForAccount,
   deployFarm,
   makeFreshFarmingTestbed,
   makeNewAccountAndEscrow,
@@ -74,70 +73,6 @@ describe("Farming", () => {
     expect(escrow!.appId).toBe(escrowB.appId);
   });
 
-  it("listing escrows", async () => {
-    function mapToAppId(escrows: Escrow[]) {
-      return escrows.map((escrow) => escrow.appId);
-    }
-    const testbedA = await makeFreshFarmingTestbed();
-    const testbedB = await makeFreshFarmingTestbed();
-
-    const escrowFarmAUserB = await deployEscrowForAccount(
-      testbedA.farm,
-      testbedB.userAccount,
-      testbedA.farm.suggestedParams,
-    );
-
-    let userAEscrows = await testbedA.pact.farming.listEscrows(
-      testbedA.userAccount.addr,
-    );
-    let userBEscrows = await testbedA.pact.farming.listEscrows(
-      testbedB.userAccount.addr,
-    );
-    expect(mapToAppId(userAEscrows)).toEqual([testbedA.escrow.appId]);
-    expect(mapToAppId(userBEscrows)).toEqual(
-      mapToAppId([testbedB.escrow, escrowFarmAUserB]),
-    );
-
-    // Can provide a list of farms to save some requests to algod.
-    let farms = [testbedA.farm, testbedB.farm];
-    userAEscrows = await testbedA.pact.farming.listEscrows(
-      testbedA.userAccount.addr,
-      { farms },
-    );
-    userBEscrows = await testbedA.pact.farming.listEscrows(
-      testbedB.userAccount.addr,
-      { farms },
-    );
-    expect(mapToAppId(userAEscrows)).toEqual([testbedA.escrow.appId]);
-    expect(mapToAppId(userBEscrows)).toEqual(
-      mapToAppId([testbedB.escrow, escrowFarmAUserB]),
-    );
-
-    // Escrows for farms not provided in the list are ignored.
-    farms = [testbedA.farm];
-    userAEscrows = await testbedA.pact.farming.listEscrows(
-      testbedA.userAccount.addr,
-      { farms },
-    );
-    userBEscrows = await testbedA.pact.farming.listEscrows(
-      testbedB.userAccount.addr,
-      { farms },
-    );
-    expect(mapToAppId(userAEscrows)).toEqual([testbedA.escrow.appId]);
-    expect(mapToAppId(userBEscrows)).toEqual([escrowFarmAUserB.appId]);
-
-    userAEscrows = await testbedA.pact.farming.listEscrows(
-      testbedA.userAccount.addr,
-      { farms: [] },
-    );
-    userBEscrows = await testbedA.pact.farming.listEscrows(
-      testbedB.userAccount.addr,
-      { farms: [] },
-    );
-    expect(userAEscrows).toEqual([]);
-    expect(userBEscrows).toEqual([]);
-  });
-
   it("farm state", async () => {
     const testbed = await makeFreshFarmingTestbed();
 
@@ -146,20 +81,20 @@ describe("Farming", () => {
     expect(testbed.farm.internalState).toEqual({
       stakedAssetId: testbed.stakedAsset.index,
       rewardAssetIds: [],
-      distributedRewards: [0, 0, 0, 0, 0, 0],
-      claimedRewards: [0, 0, 0, 0, 0, 0],
-      pendingRewards: [0, 0, 0, 0, 0, 0],
-      nextRewards: [0, 0, 0, 0, 0, 0],
-      rptFrac: [0, 0, 0, 0, 0, 0],
-      rpt: [0, 0, 0, 0, 0, 0],
+      distributedRewards: [0, 0, 0, 0, 0, 0, 0],
+      claimedRewards: [0, 0, 0, 0, 0, 0, 0],
+      pendingRewards: [0, 0, 0, 0, 0, 0, 0],
+      nextRewards: [0, 0, 0, 0, 0, 0, 0],
+      rptFrac: [0, 0, 0, 0, 0, 0, 0],
+      rpt: [0, 0, 0, 0, 0, 0, 0],
       duration: 0,
       nextDuration: 0,
       numStakers: 0,
       totalStaked: 0,
       updatedAt: lastBlock - 6,
-      deprecatedAt: 0,
       admin: testbed.adminAccount.addr,
       updater: testbed.adminAccount.addr,
+      version: 100,
     });
     expect(testbed.farm.state).toEqual({
       stakedAsset: testbed.stakedAsset,
@@ -174,9 +109,9 @@ describe("Farming", () => {
       numStakers: 0,
       totalStaked: 0,
       updatedAt: new Date((lastBlock - 6) * 1000),
-      deprecatedAt: new Date(0),
       admin: testbed.adminAccount.addr,
       updater: testbed.adminAccount.addr,
+      version: 100,
     });
 
     await testbed.depositRewards({ [testbed.rewardAsset.index]: 2000 }, 100);
@@ -195,9 +130,9 @@ describe("Farming", () => {
       numStakers: 0,
       totalStaked: 0,
       updatedAt: new Date(lastBlock * 1000),
-      deprecatedAt: new Date(0),
       admin: testbed.adminAccount.addr,
       updater: testbed.adminAccount.addr,
+      version: 100,
     });
 
     await testbed.stake(1000);
@@ -217,9 +152,9 @@ describe("Farming", () => {
       numStakers: 1,
       totalStaked: 1000,
       updatedAt: new Date(lastBlock * 1000),
-      deprecatedAt: new Date(0),
       admin: testbed.adminAccount.addr,
       updater: testbed.adminAccount.addr,
+      version: 100,
     });
 
     const userState = await testbed.escrow.fetchUserState();
@@ -267,6 +202,7 @@ describe("Farming", () => {
       totalStaked: 1000,
       admin: testbed.adminAccount.addr,
       updater: testbed.adminAccount.addr,
+      version: 100,
     });
 
     // Wait some time and unstake all.
@@ -299,6 +235,7 @@ describe("Farming", () => {
       totalStaked: 0,
       admin: testbed.adminAccount.addr,
       updater: testbed.adminAccount.addr,
+      version: 100,
     });
 
     // Claim rewards.
@@ -328,6 +265,7 @@ describe("Farming", () => {
       totalStaked: 0,
       admin: testbed.adminAccount.addr,
       updater: testbed.adminAccount.addr,
+      version: 100,
     });
 
     holding = await testbed.rewardAsset.getHolding(testbed.farm.appAddress);
@@ -366,53 +304,6 @@ describe("Farming", () => {
     holding = await testbed.stakedAsset.getHolding(testbed.escrow.address);
     expect(holding).toBe(0);
     expect(testbed.farm.state.totalStaked).toBe(0);
-  });
-
-  xit("delete and clear micro farm", async () => {
-    const testbed = await makeFreshFarmingTestbed();
-    await testbed.depositRewards({ [testbed.rewardAsset.index]: 1000 }, 100);
-
-    await testbed.stake(1_000_000);
-    await testbed.waitRoundsAndUpdateFarm(5);
-
-    expect(testbed.farm.state.distributedRewards).toEqual({
-      [testbed.rewardAsset.index]: 50,
-    });
-    expect(testbed.farm.state.totalStaked).toBe(1_000_000);
-    expect(testbed.farm.state.numStakers).toBe(1);
-
-    const userAssetAmount =
-      (await testbed.stakedAsset.getHolding(testbed.userAccount.addr)) ?? 0;
-    const userAlgoAmount =
-      (await testbed.algo.getHolding(testbed.userAccount.addr)) ?? 0;
-
-    let holding = await testbed.stakedAsset.getHolding(testbed.escrow.address);
-    expect(holding).toBe(1_000_000);
-    holding = await testbed.algo.getHolding(testbed.escrow.address);
-    expect(holding).toBe(200_000);
-
-    // Delete the micro farm.
-    const deleteTxs = await testbed.escrow.buildDeleteAndClearTxs();
-    await signAndSend(new TransactionGroup(deleteTxs), testbed.userAccount);
-
-    // Make sure the escrow addr is cleared.
-    holding = await testbed.stakedAsset.getHolding(testbed.escrow.address);
-    expect(holding).toBeNull();
-    holding = await testbed.algo.getHolding(testbed.escrow.address);
-    expect(holding).toBe(0);
-
-    // Make sure all tokens are claimed by the user account (algos and staked asset).
-    holding = await testbed.stakedAsset.getHolding(testbed.userAccount.addr);
-    expect(holding).toBe(userAssetAmount + 1_000_000);
-    holding = await testbed.algo.getHolding(testbed.userAccount.addr);
-    expect(holding).toBe(userAlgoAmount + 200_000 - 5000); // + locked amount - fee
-
-    // Check farm's global state.
-    await testbed.farm.updateState();
-    expect(testbed.farm.state.distributedRewards).toEqual({
-      [testbed.rewardAsset.index]: 50,
-    });
-    expect(testbed.farm.state.numStakers).toBe(0);
   });
 
   it("estimate rewards", async () => {
@@ -490,7 +381,7 @@ describe("Farming", () => {
     // No next rewards, estimate future cycles.
     atTime = new Date(testbed.farm.state.updatedAt.getTime() + 55_000);
     expect(testbed.farm.estimateAccruedRewards(atTime, userState!)).toEqual({
-      [testbed.rewardAsset.index]: 5500,
+      [testbed.rewardAsset.index]: 1000, // no future extrapolation for estimate.
     });
     expect(testbed.farm.simulateNewStaker(atTime, 0)).toEqual({
       [testbed.rewardAsset.index]: 0,
@@ -558,7 +449,7 @@ describe("Farming", () => {
     // Next rewards, estimate future cycles.
     atTime = new Date(testbed.farm.state.updatedAt.getTime() + 54_000);
     expect(testbed.farm.estimateAccruedRewards(atTime, userState!)).toEqual({
-      [testbed.rewardAsset.index]: 12_250,
+      [testbed.rewardAsset.index]: 6000, // no future extrapolation for estimate.
     });
     atTime = new Date(testbed.farm.state.updatedAt.getTime() + 55_000);
     expect(testbed.farm.simulateNewStaker(atTime, 0)).toEqual({
@@ -598,7 +489,36 @@ describe("Farming", () => {
       [testbed.rewardAsset.index]: 2250,
     });
 
-    // TODO missing in contract, limit to deprecation time.
+    // Wait until duration is 0
+    await testbed.waitRoundsAndUpdateFarm(4);
+    expect(testbed.farm.state.duration).toBe(1);
+    expect(testbed.farm.state.nextDuration).toBe(20);
+
+    await testbed.waitRoundsAndUpdateFarm(1);
+    expect(testbed.farm.state.duration).toBe(20);
+    expect(testbed.farm.state.nextDuration).toBe(0);
+
+    await testbed.waitRoundsAndUpdateFarm(1);
+    expect(testbed.farm.state.duration).toBe(19);
+    expect(testbed.farm.state.nextDuration).toBe(0);
+
+    await testbed.waitRoundsAndUpdateFarm(19);
+    expect(testbed.farm.state.duration).toBe(0);
+    expect(testbed.farm.state.nextDuration).toBe(0);
+
+    atTime = new Date(testbed.farm.state.updatedAt.getTime() + 10_000);
+    expect(testbed.farm.estimateAccruedRewards(atTime, userState!)).toEqual({
+      [testbed.rewardAsset.index]: 6000,
+    });
+
+    // Cannot simulate new staker if duration is 0.
+    atTime = new Date(testbed.farm.state.updatedAt.getTime() + 10_000);
+    expect(testbed.farm.simulateNewStaker(atTime, 0)).toEqual({
+      [testbed.rewardAsset.index]: 0,
+    });
+    expect(testbed.farm.simulateNewStaker(atTime, 10)).toEqual({
+      [testbed.rewardAsset.index]: 0,
+    });
   });
 
   it("deposit next rewards", async () => {
@@ -955,15 +875,12 @@ describe("Farming", () => {
       [algo.index]: 648,
       [rewardAsset.index]: 6_000,
     });
-    // old_algo_amount = algo.getHolding(testbed.userAccount.addr)
     await testbed.assertRewards(() => testbed.claim());
     await updateFarm(testbed.escrow, testbed.userAccount);
     expect(testbed.farm.state.pendingRewards).toEqual({
       [algo.index]: 500,
       [rewardAsset.index]: 10_000,
     });
-    // TODO
-    // expect(algo.getHolding(testbed.userAccount.addr) == old_algo_amount + 500-3000
   });
 
   it("stake for longer then farm duration", async () => {
@@ -1169,7 +1086,7 @@ describe("Farming", () => {
     expect(escrow).toBeNull();
 
     // Deploy an escrow.
-    const deployTxs = farm.buildDeployEscrowTxs(userAccount.addr);
+    const deployTxs = await farm.prepareDeployEscrowTxs(userAccount.addr);
     await signAndSend(new TransactionGroup(deployTxs), userAccount);
     const txinfo: any = await algod
       .pendingTransactionInformation(deployTxs[1].txID())
@@ -1197,55 +1114,167 @@ describe("Farming", () => {
     expect(holding).toBe(59);
   });
 
-  xit("custom escrow transaction", async () => {
-    // const testbed = await makeFreshFarmingTestbed();
-    // await testbed.depositRewards({ [testbed.rewardAsset.index]: 2000 }, 100);
-    // await testbed.stake(1000);
-    // await testbed.farm.updateState();
-    // expect(testbed.farm.state.totalStaked).toBe(1000);
-    // // Send a zero algo transaction from the escrow e.g. governance.
-    // let txs = testbed.escrow.rekey((txs) => {
-    //   txs.push(
-    //     testbed.algo.buildTransferTx(
-    //       testbed.userAccount.addr,
-    //       testbed.adminAccount.addr,
-    //       0,
-    //       testbed.farm.suggestedParams,
-    //     ),
-    //   );
-    // });
-    // await signAndSend(new TransactionGroup(txs), testbed.userAccount);
-    // // The staked amount should be unchanged.
-    // await testbed.farm.updateState();
-    // expect(testbed.farm.state.totalStaked).toBe(1000);
-    // let userState = await testbed.escrow.fetchUserState();
-    // expect(userState!.staked).toBe(1000);
-    // // Now let's send some of the staked tokens out of the escrow.
-    // txs = testbed.escrow.rekey((txs) => {
-    //   // Send some algo to cover fee for the next tx.
-    //   txs.push(
-    //     testbed.algo.buildTransferTx(
-    //       testbed.userAccount.addr,
-    //       testbed.escrow.address,
-    //       1000,
-    //       testbed.farm.suggestedParams,
-    //     ),
-    //   );
-    //   // Send staked asset.
-    //   txs.push(
-    //     testbed.farm.stakedAsset.buildTransferTx(
-    //       testbed.escrow.address,
-    //       testbed.adminAccount.addr,
-    //       800,
-    //       testbed.farm.suggestedParams,
-    //     ),
-    //   );
-    // });
-    // await signAndSend(new TransactionGroup(txs), testbed.userAccount);
-    // // Check if farm is notified about the change is staked amount.
-    // await testbed.farm.updateState();
-    // expect(testbed.farm.state.totalStaked).toBe(200);
-    // userState = await testbed.escrow.fetchUserState();
-    // expect(userState!.staked).toBe(200);
+  it("governance", async () => {
+    const testbed = await makeFreshFarmingTestbed();
+    await testbed.depositRewards({ [testbed.rewardAsset.index]: 2000 }, 100);
+
+    await testbed.stake(1000);
+
+    await testbed.farm.updateState();
+    expect(testbed.farm.state.totalStaked).toBe(1000);
+
+    // Commit to governance
+    const sendMessageTx = testbed.escrow.buildSendMessageTx(
+      testbed.adminAccount.addr,
+      "some message required by the Foundation",
+    );
+    await signAndSend(sendMessageTx, testbed.userAccount);
+
+    // Simulate governance reward.
+    const transferTx = testbed.algo.buildTransferTx(
+      testbed.adminAccount.addr,
+      testbed.escrow.address,
+      100,
+      testbed.escrow.suggestedParams,
+    );
+    await signAndSend(transferTx, testbed.adminAccount);
+
+    const escrowAlgos = await testbed.algo.getHolding(testbed.escrow.address);
+    const userAlgos = await testbed.algo.getHolding(testbed.userAccount.addr);
+
+    // Withdraw reward.
+    const withdrawTx = testbed.escrow.buildWithdrawAlgos();
+    await signAndSend(withdrawTx, testbed.userAccount);
+
+    expect(await testbed.algo.getHolding(testbed.escrow.address)).toBe(
+      escrowAlgos! - 100,
+    );
+    expect(await testbed.algo.getHolding(testbed.userAccount.addr)).toBe(
+      userAlgos! + 100 - 2000,
+    );
+  });
+
+  it("exit and delete", async () => {
+    const testbed = await makeFreshFarmingTestbed();
+    await testbed.depositRewards({ [testbed.rewardAsset.index]: 1000 }, 100);
+
+    await testbed.stake(1_000_000);
+    await testbed.waitRoundsAndUpdateFarm(5);
+    expect(testbed.farm.state.distributedRewards).toEqual({
+      [testbed.rewardAsset.index]: 50,
+    });
+
+    expect(testbed.farm.state.totalStaked).toBe(1_000_000);
+    expect(testbed.farm.state.numStakers).toBe(1);
+
+    expect(await testbed.stakedAsset.getHolding(testbed.escrow.address)).toBe(
+      1_000_000,
+    );
+    expect(await testbed.algo.getHolding(testbed.escrow.address)).toBe(200_000);
+
+    // Claim and unstake are required before exiting.
+    const unstakeTxs = testbed.escrow.buildUnstakeTxs(1_000_000);
+    const claim_tx = testbed.escrow.buildClaimRewardsTx();
+    await signAndSend(
+      new TransactionGroup([...unstakeTxs, claim_tx]),
+      testbed.userAccount,
+    );
+
+    const userAlgoAmount = await testbed.algo.getHolding(
+      testbed.userAccount.addr,
+    );
+
+    // Close out and delete the micro farm.
+    const exitTx = testbed.escrow.buildExitTx();
+    const deleteTx = testbed.escrow.buildDeleteTx();
+    const exitAndDeleteGroup = new TransactionGroup([exitTx, deleteTx]);
+    await signAndSend(exitAndDeleteGroup, testbed.userAccount);
+
+    // Make sure the escrow address is cleared.
+    expect(
+      await testbed.stakedAsset.getHolding(testbed.escrow.address),
+    ).toBeNull();
+    expect(await testbed.algo.getHolding(testbed.escrow.address)).toBe(0);
+
+    // Make sure all algos are claimed by the user account.
+    expect(await testbed.algo.getHolding(testbed.userAccount.addr)).toBe(
+      userAlgoAmount! + 200_000 - 4000, // + locked amount - fee
+    );
+  });
+
+  it("force exit and delete", async () => {
+    const testbed = await makeFreshFarmingTestbed();
+    await testbed.depositRewards({ [testbed.rewardAsset.index]: 1000 }, 100);
+
+    await testbed.stake(1_000_000);
+    await testbed.waitRoundsAndUpdateFarm(5);
+    expect(testbed.farm.state.distributedRewards).toEqual({
+      [testbed.rewardAsset.index]: 50,
+    });
+
+    expect(testbed.farm.state.totalStaked).toBe(1_000_000);
+    expect(testbed.farm.state.numStakers).toBe(1);
+
+    expect(await testbed.stakedAsset.getHolding(testbed.escrow.address)).toBe(
+      1_000_000,
+    );
+    expect(await testbed.algo.getHolding(testbed.escrow.address)).toBe(200_000);
+
+    const userAlgoAmount = await testbed.algo.getHolding(
+      testbed.userAccount.addr,
+    );
+    const userStakedAmount = await testbed.stakedAsset.getHolding(
+      testbed.userAccount.addr,
+    );
+
+    // Close out and delete the micro farm. Unstake is not required when doing forceExit.
+    const exitTx = testbed.escrow.buildForceExitTx();
+    const deleteTx = testbed.escrow.buildDeleteTx();
+    const exitAndDeleteGroup = new TransactionGroup([exitTx, deleteTx]);
+    await signAndSend(exitAndDeleteGroup, testbed.userAccount);
+
+    // Make sure the escrow address is cleared.
+    expect(
+      await testbed.stakedAsset.getHolding(testbed.escrow.address),
+    ).toBeNull();
+    expect(await testbed.algo.getHolding(testbed.escrow.address)).toBe(0);
+
+    // Make sure all algos and staked tokens are claimed by the user account.
+    expect(await testbed.algo.getHolding(testbed.userAccount.addr)).toBe(
+      userAlgoAmount! + 200_000 - 4000, // + locked amount - fee
+    );
+    expect(await testbed.stakedAsset.getHolding(testbed.userAccount.addr)).toBe(
+      userStakedAmount! + 1_000_000,
+    );
+  });
+
+  it("haveRewards()", async () => {
+    const testbed = await makeFreshFarmingTestbed();
+    expect(testbed.farm.haveRewards()).toBe(false);
+
+    await testbed.depositRewards({ [testbed.rewardAsset.index]: 100 }, 10);
+    expect(testbed.farm.haveRewards()).toBe(true);
+
+    // Farm is freezed.
+    let dt = new Date(testbed.farm.state.updatedAt.getTime() + 20_000);
+    expect(testbed.farm.haveRewards(dt)).toBe(true);
+
+    await testbed.stake(10);
+    await updateFarm(testbed.escrow, testbed.userAccount);
+    dt = new Date(testbed.farm.state.updatedAt.getTime() + 5_000);
+    expect(testbed.farm.haveRewards(dt)).toBe(true);
+
+    dt = new Date(testbed.farm.state.updatedAt.getTime() + 8_000);
+    expect(testbed.farm.haveRewards(dt)).toBe(true);
+
+    dt = new Date(testbed.farm.state.updatedAt.getTime() + 9_000);
+    expect(testbed.farm.haveRewards(dt)).toBe(false);
+
+    dt = new Date(testbed.farm.state.updatedAt.getTime() + 20_000);
+    expect(testbed.farm.haveRewards(dt)).toBe(false);
+
+    // Farm is finished.
+    await testbed.waitRoundsAndUpdateFarm(10);
+    expect(testbed.farm.haveRewards()).toBe(false);
   });
 });

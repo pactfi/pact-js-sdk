@@ -8,14 +8,12 @@ import { Buffer } from "buffer";
 
 import algosdk from "algosdk";
 
-import { encodeArray } from "../encoding";
+import { encode, encodeArray } from "../encoding";
 import { PactSdkError } from "../exceptions";
 import { getGasStation } from "../gasStation";
 import { parseState, spFee } from "../utils";
 import { Farm, fetchFarmById } from "./farm";
 
-const COMPILED_APPROVAL_PROGRAM_B64 =
-  "CCADAAEGJgMLTWFzdGVyQXBwSUQBAQEAMgkxABJEMRlAANExGEAAOjYaAIAEOIgacRJEKDYaARfAMmexJLIQNhoCF8AyshiABLc1X9GyGiKyAbMyCjYaAxfAMCKIALNCAK42GgCABHiCLPASQABDNhoAgAQh8d3/EkAAKTYaAIAEm+QoGxJAAAEAsSOyEDYaARfAHLIHIrIBNhoCVwIAsgWzQgBrMgkiNhoBF4gAY0IAXjIJNhoBF8AwNhoCF4gAUbEkshAoZLIYgATDFArnshopshoqshopshoqshoyCbIcMgiyMjYaARfAMLIwIrIBs0IAHDEZgQUSQAABADIJKGRhFESxI7IQIrIBMgmyILMjQzUCNQE1ADQBQAATsSOyEDQAsgc0ArIIIrIBs0IAFbGBBLIQNACyFDQCshI0AbIRIrIBs4k=";
 const COMPILED_CLEAR_PROGRAM_B64 = "CIEBQw==";
 
 // create(application,application,asset)void
@@ -24,25 +22,33 @@ const CREATE_SIG = new Uint8Array([56, 136, 26, 113]);
 // unstake(asset,uint64,application)void
 const UNSTAKE_SIG = new Uint8Array([120, 130, 44, 240]);
 
-// withdraw(uint64)void
-// const WITHDRAW_ALGOS_SIG = new Uint8Array([33, 241, 221, 255]);
-
 // send_message(account,string)void
-// const SEND_MESSAGE_SIG = new Uint8Array([155, 228, 40, 27]);
+const SEND_MESSAGE_SIG = new Uint8Array([155, 228, 40, 27]);
+
+// withdraw_algos()void
+const WITHDRAW_ALGOS_SIG = new Uint8Array([183, 88, 216, 209]);
 
 export type EscrowInternalState = {
   masterApp: number;
 };
 
+export async function fetchEscrowApprovalProgram(
+  algod: algosdk.Algodv2,
+  farmAppId: number,
+): Promise<Uint8Array> {
+  const box = await algod
+    .getApplicationBoxByName(farmAppId, Buffer.from("Escrow"))
+    .do();
+  return box.value;
+}
+
 export function buildDeployEscrowTxs(
   sender: string,
   farmAppId: number,
   stakedAssetId: number,
+  approvalProgram: Uint8Array,
   suggestedParams: algosdk.SuggestedParams,
 ): algosdk.Transaction[] {
-  const approvalProgram = new Uint8Array(
-    Buffer.from(COMPILED_APPROVAL_PROGRAM_B64, "base64"),
-  );
   const clearProgram = new Uint8Array(
     Buffer.from(COMPILED_CLEAR_PROGRAM_B64, "base64"),
   );
@@ -93,44 +99,6 @@ export async function fetchEscrowById(
   }
 
   return new Escrow(algod, appId, farm, creator, state);
-}
-
-export async function listEscrowsFromAccountInfo(
-  algod: algosdk.Algodv2,
-  accountInfo: any,
-  options: { farms?: Farm[] } = {},
-): Promise<Escrow[]> {
-  const farmsById: Record<number, Farm> = {};
-
-  for (const farm of options.farms ?? []) {
-    farmsById[farm.appId] = farm;
-  }
-  const escrows: Escrow[] = [];
-
-  for (const appInfo of accountInfo["created-apps"]) {
-    if (
-      appInfo["params"]["approval-program"] !== COMPILED_APPROVAL_PROGRAM_B64
-    ) {
-      continue;
-    }
-    const state = parseGlobalEscrowState(appInfo["params"]["global-state"]);
-    const creator = appInfo["params"]["creator"];
-
-    let farm: Farm;
-    if (!options.farms) {
-      farm = await fetchFarmById(algod, state.masterApp);
-    } else {
-      farm = farmsById[state.masterApp];
-    }
-
-    if (!farm) {
-      continue;
-    }
-
-    escrows.push(new Escrow(algod, appInfo["id"], farm, creator, state));
-  }
-
-  return escrows;
 }
 
 export async function fetchEscrowGlobalState(
@@ -202,9 +170,6 @@ export class Escrow {
   }
 
   buildUnstakeTxs(amount: number): algosdk.Transaction[] {
-    const increaseOpcodeQuotaTx = this.farm.buildUpdateIncreaseOpcodeQuotaTx(
-      this.userAddress,
-    );
     const unstakeTx = algosdk.makeApplicationNoOpTxnFromObject({
       from: this.userAddress,
       appIndex: this.appId,
@@ -219,11 +184,60 @@ export class Escrow {
       suggestedParams: spFee(this.suggestedParams, 3000),
     });
 
-    return [increaseOpcodeQuotaTx, unstakeTx];
+    const txs = [unstakeTx];
+
+    const increaseOpcodeQuotaTx = this.farm.buildUpdateIncreaseOpcodeQuotaTx(
+      this.userAddress,
+    );
+
+    if (increaseOpcodeQuotaTx) {
+      txs.unshift(increaseOpcodeQuotaTx);
+    }
+
+    return txs;
   }
 
   buildClaimRewardsTx(): algosdk.Transaction {
     return this.farm.buildClaimRewardsTx(this);
+  }
+
+  buildSendMessageTx(address: string, message: string): algosdk.Transaction {
+    return algosdk.makeApplicationNoOpTxnFromObject({
+      from: this.userAddress,
+      appIndex: this.appId,
+      appArgs: [
+        SEND_MESSAGE_SIG,
+        new algosdk.ABIUintType(8).encode(0),
+        encode(message),
+      ],
+      accounts: [address],
+      suggestedParams: spFee(this.suggestedParams, 2000),
+    });
+  }
+
+  buildWithdrawAlgos(): algosdk.Transaction {
+    return algosdk.makeApplicationNoOpTxnFromObject({
+      from: this.userAddress,
+      appIndex: this.appId,
+      appArgs: [WITHDRAW_ALGOS_SIG],
+      suggestedParams: spFee(this.suggestedParams, 2000),
+    });
+  }
+
+  buildForceExitTx(): algosdk.Transaction {
+    return algosdk.makeApplicationClearStateTxnFromObject({
+      from: this.userAddress,
+      appIndex: this.farm.appId,
+      suggestedParams: this.suggestedParams,
+    });
+  }
+
+  buildExitTx(): algosdk.Transaction {
+    return algosdk.makeApplicationCloseOutTxnFromObject({
+      from: this.userAddress,
+      appIndex: this.farm.appId,
+      suggestedParams: this.suggestedParams,
+    });
   }
 
   buildDeleteTx(): algosdk.Transaction {
@@ -231,47 +245,8 @@ export class Escrow {
       from: this.userAddress,
       appIndex: this.appId,
       foreignApps: [this.farm.appId],
-      suggestedParams: spFee(this.suggestedParams, 2000),
+      foreignAssets: [this.farm.stakedAsset.index],
+      suggestedParams: spFee(this.suggestedParams, 3000),
     });
-  }
-
-  async buildClearTxs(): Promise<algosdk.Transaction[]> {
-    const isOptedIn = await this.farm.stakedAsset.isOptedIn(this.address);
-
-    const txs: algosdk.Transaction[] = [];
-
-    // Claim staked tokens if needed.
-    if (isOptedIn) {
-      txs.push(
-        this.farm.stakedAsset.buildOptOutTx(
-          this.address,
-          this.userAddress,
-          this.suggestedParams,
-        ),
-      );
-    }
-    txs.push(
-      algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-        from: this.address,
-        to: this.userAddress,
-        amount: 0,
-        suggestedParams: this.suggestedParams,
-        closeRemainderTo: this.userAddress,
-      }),
-    );
-
-    return txs;
-  }
-
-  async buildDeleteAndClearTxs(): Promise<algosdk.Transaction[]> {
-    const farmOptOut = algosdk.makeApplicationCloseOutTxnFromObject({
-      from: this.userAddress,
-      suggestedParams: this.suggestedParams,
-      appIndex: this.farm.appId,
-    });
-    const deleteTx = this.buildDeleteTx();
-    const clearTxs = await this.buildClearTxs();
-
-    return [farmOptOut, deleteTx, ...clearTxs];
   }
 }
