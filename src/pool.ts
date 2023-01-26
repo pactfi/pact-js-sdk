@@ -111,7 +111,10 @@ export type SwapTxOptions = {
   address: string;
 };
 
-export type PoolType = "CONSTANT_PRODUCT" | "STABLESWAP";
+export type PoolType =
+  | "CONSTANT_PRODUCT"
+  | "STABLESWAP"
+  | "NFT_CONSTANT_PRODUCT";
 
 /**
  * The basic three operation types in a PACT liquidity pool, namely Add Liquidity (ADDLIQ), Remove Liquidity (REMLIQ) and making a swap (SWAP).
@@ -355,7 +358,10 @@ export class Pool {
 
     this.poolType = getPoolTypeFromInternalState(internalState);
 
-    if (this.poolType === "CONSTANT_PRODUCT") {
+    if (
+      this.poolType === "CONSTANT_PRODUCT" ||
+      this.poolType === "NFT_CONSTANT_PRODUCT"
+    ) {
       this.params = {
         feeBps: internalState.FEE_BPS,
         pactFeeBps: internalState.PACT_FEE_BPS ?? 0,
@@ -484,7 +490,10 @@ export class Pool {
         );
       }
 
-      if (this.poolType === "CONSTANT_PRODUCT") {
+      if (
+        this.poolType === "CONSTANT_PRODUCT" ||
+        this.poolType === "NFT_CONSTANT_PRODUCT"
+      ) {
         // Adding initial liquidity has a limitation that the product of 2 assets must be lower than 2**64. Let's check if we can fit below the limit.
         const maxProduct = new D(2).pow(new D(64));
         const product = new D(primaryAssetAmount).mul(secondaryAssetAmount);

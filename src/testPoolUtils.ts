@@ -29,6 +29,24 @@ export function deployConstantProductContract(
   );
 }
 
+export function deployNftConstantProductContract(
+  account: algosdk.Account,
+  primaryAssetIndex: number,
+  secondaryAssetIndex: number,
+  options: {
+    feeBps?: number;
+    pactFeeBps?: number;
+  } = {},
+) {
+  return deployExchangeContract(
+    account,
+    "NFT_CONSTANT_PRODUCT",
+    primaryAssetIndex,
+    secondaryAssetIndex,
+    options,
+  );
+}
+
 export function deployStableswapContract(
   account: algosdk.Account,
   primaryAssetIndex: number,

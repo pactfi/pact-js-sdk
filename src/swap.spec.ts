@@ -8,6 +8,7 @@ import { Swap } from "./swap";
 import {
   addLiquidity,
   deployConstantProductContract,
+  deployNftConstantProductContract,
   deployStableswapContract,
   makeFreshPoolTestbed,
 } from "./testPoolUtils";
@@ -363,6 +364,41 @@ function swapTestCase(poolType: PoolType) {
     await testSwap(reversedSwap, account);
   });
 
+  it("swap for exact secondary with equal liquidity", async () => {
+    const { account, algo, coin, pool } = await makeFreshPoolTestbed({
+      poolType: poolType,
+    });
+    const [primaryLiq, secondaryLiq, amount] = [20_000, 20_000, 1_000];
+    await addLiquidity(account, pool, primaryLiq, secondaryLiq);
+
+    const reversedSwap = pool.prepareSwap({
+      amount,
+      asset: coin,
+      slippagePct: 10,
+      swapForExact: true,
+    });
+
+    expect(reversedSwap.assetReceived).toBe(algo);
+    expect(reversedSwap.assetDeposited).toBe(coin);
+    expect(reversedSwap.slippagePct).toBe(10);
+    expect(reversedSwap.effect.amountReceived).toBe(1000);
+    expect(reversedSwap.effect.amountDeposited).toBeGreaterThan(1000);
+
+    const swap = pool.prepareSwap({
+      amount: reversedSwap.effect.amountDeposited,
+      asset: coin,
+      slippagePct: 10,
+    });
+
+    expect(swap.effect.fee).toBe(reversedSwap.effect.fee);
+    expect(swap.effect.amountDeposited).toBe(
+      reversedSwap.effect.amountDeposited,
+    );
+    expect(swap.effect.amountReceived).toBe(reversedSwap.effect.amountReceived);
+
+    await testSwap(reversedSwap, account);
+  });
+
   it("swap for exact primary with not equal liquidity", async () => {
     const { account, algo, pool } = await makeFreshPoolTestbed({
       poolType: poolType,
@@ -393,6 +429,36 @@ function swapTestCase(poolType: PoolType) {
 
     await testSwap(reversedSwap, account);
   });
+  it("swap for exact secondary with not equal liquidity", async () => {
+    const { account, coin, pool } = await makeFreshPoolTestbed({
+      poolType: poolType,
+    });
+    const [primaryLiq, secondaryLiq, amount] = [15_000, 25_000, 2_000];
+    await addLiquidity(account, pool, primaryLiq, secondaryLiq);
+
+    const reversedSwap = pool.prepareSwap({
+      amount,
+      asset: coin,
+      slippagePct: 10,
+      swapForExact: true,
+    });
+
+    expect(reversedSwap.effect.amountReceived).toBe(2000);
+
+    const swap = pool.prepareSwap({
+      amount: reversedSwap.effect.amountDeposited,
+      asset: coin,
+      slippagePct: 10,
+    });
+
+    expect(swap.effect.fee).toBe(reversedSwap.effect.fee);
+    expect(swap.effect.amountDeposited).toBe(
+      reversedSwap.effect.amountDeposited,
+    );
+    expect(swap.effect.amountReceived).toBe(reversedSwap.effect.amountReceived);
+
+    await testSwap(reversedSwap, account);
+  });
 
   it("swap for exact liquidity surpassed", async () => {
     const { account, algo, pool } = await makeFreshPoolTestbed({
@@ -400,7 +466,11 @@ function swapTestCase(poolType: PoolType) {
     });
     await addLiquidity(account, pool, 25_000, 15_000);
 
-    const amounts = [20_000, 15_000, 14_990];
+    // NFT product consumes fee only from primary asset, in case of that we need to change values
+    const amounts =
+      poolType === "NFT_CONSTANT_PRODUCT"
+        ? [20_000, 15_000]
+        : [20_000, 15_000, 14_990];
     for (const amount of amounts) {
       expect(() =>
         pool.prepareSwap({
@@ -463,6 +533,43 @@ describe("constant product swap", () => {
     const coinBIndex = await createAsset(account, "COIN_B", 2);
 
     const appId = await deployConstantProductContract(
+      account,
+      coinAIndex,
+      coinBIndex,
+    );
+    const pool = await pact.fetchPoolById(appId);
+
+    await addLiquidity(account, pool, 20_000, 20_000);
+    await pool.updateState();
+    expect(pool.state).toEqual({
+      primaryAssetPrice: 10, // because different decimal places for both assets.
+      secondaryAssetPrice: 0.1,
+      totalLiquidity: 20000,
+      totalPrimary: 20000,
+      totalSecondary: 20000,
+    });
+
+    const swap = pool.prepareSwap({
+      amount: 1000,
+      asset: pool.primaryAsset,
+      slippagePct: 10,
+    });
+    expect(swap.effect.amplifier).toBe(0);
+    await testSwap(swap, account);
+  });
+});
+
+describe("nft constant product swap", () => {
+  swapTestCase("NFT_CONSTANT_PRODUCT");
+
+  it("ASA to ASA", async () => {
+    const account = await newAccount();
+    const pact = new PactClient(algod);
+
+    const coinAIndex = await createAsset(account, "COIN_A", 3);
+    const coinBIndex = await createAsset(account, "COIN_B", 2);
+
+    const appId = await deployNftConstantProductContract(
       account,
       coinAIndex,
       coinBIndex,

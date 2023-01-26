@@ -18,6 +18,9 @@ export class PoolCalculator {
   constructor(private pool: Pool) {
     if (pool.poolType === "CONSTANT_PRODUCT") {
       this.swapCalculator = new ConstantProductCalculator(pool);
+    } else if (pool.poolType === "NFT_CONSTANT_PRODUCT") {
+      // NFT product is practically the same as Constant product
+      this.swapCalculator = new ConstantProductCalculator(pool);
     } else if (pool.poolType === "STABLESWAP") {
       this.swapCalculator = new StableswapCalculator(pool);
     } else {
@@ -84,6 +87,15 @@ export class PoolCalculator {
     asset: Asset,
     amountDeposited: bigint,
   ): bigint {
+    const isPrimaryNftSwap =
+      this.pool.poolType == "NFT_CONSTANT_PRODUCT" &&
+      asset == this.pool.primaryAsset;
+    if (isPrimaryNftSwap) {
+      const fee = this.getFeeFromGrossAmount(amountDeposited);
+      amountDeposited = amountDeposited - fee;
+      return this.amountDepositedToGrossAmountReceived(asset, amountDeposited);
+    }
+
     const grossAmountReceived = this.amountDepositedToGrossAmountReceived(
       asset,
       amountDeposited,
@@ -104,6 +116,16 @@ export class PoolCalculator {
     asset: Asset,
     netAmountReceived: bigint,
   ): bigint {
+    const isPrimaryNftSwap =
+      this.pool.poolType == "NFT_CONSTANT_PRODUCT" &&
+      asset == this.pool.primaryAsset;
+    if (isPrimaryNftSwap) {
+      const amount = this.grossAmountReceivedToAmountDeposited(
+        asset,
+        netAmountReceived,
+      );
+      return amount + this.getFeeFromNetAmount(amount);
+    }
     const fee = this.getFeeFromNetAmount(netAmountReceived);
     netAmountReceived += fee;
     return this.grossAmountReceivedToAmountDeposited(asset, netAmountReceived);

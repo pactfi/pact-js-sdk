@@ -222,11 +222,12 @@ async function test_parsing_state(
   pool: Pool,
   version: number,
   state: object,
+  poolType: string,
 ) {
   expect(pool.primaryAsset.index).toBe(testBed.algo.index);
   expect(pool.secondaryAsset.index).toBe(testBed.coin.index);
 
-  expect(pool.poolType).toBe("CONSTANT_PRODUCT");
+  expect(pool.poolType).toBe(poolType);
   expect(pool.version).toBe(version);
 
   expect(pool.internalState).toEqual(state);
@@ -248,9 +249,29 @@ describe("Constant product pool", () => {
       FEE_BPS: pool.feeBps,
       L: 0,
     };
-    test_parsing_state(testBed, pool, 0, state);
+    test_parsing_state(testBed, pool, 0, state, "CONSTANT_PRODUCT");
   });
-
+  it("parsing state nft", async () => {
+    const testBed = await makeFreshPoolTestbed({
+      poolType: "NFT_CONSTANT_PRODUCT",
+    });
+    const pool = testBed.pool;
+    const state = {
+      A: 0,
+      ADMIN: testBed.account.addr,
+      ASSET_A: pool.primaryAsset.index,
+      ASSET_B: pool.secondaryAsset.index,
+      LTID: pool.liquidityAsset.index,
+      B: 0,
+      CONTRACT_NAME: "PACT AMM [NFT]",
+      FEE_BPS: pool.feeBps,
+      L: 0,
+      PACT_FEE_BPS: 0,
+      TREASURY: testBed.account.addr,
+      VERSION: 200,
+    };
+    test_parsing_state(testBed, pool, 200, state, "NFT_CONSTANT_PRODUCT");
+  });
   it("parsing state", async () => {
     const testBed = await makeFreshPoolTestbed({
       poolType: "CONSTANT_PRODUCT",
@@ -272,7 +293,7 @@ describe("Constant product pool", () => {
       TREASURY: testBed.account.addr,
       VERSION: 2,
     };
-    test_parsing_state(testBed, pool, 2, state);
+    test_parsing_state(testBed, pool, 2, state, "CONSTANT_PRODUCT");
   });
 
   async function e2e_scenario(testBed: PoolTestBed) {
@@ -365,6 +386,12 @@ describe("Constant product pool", () => {
   it("e2e scenario", async () => {
     const testBed = await makeFreshPoolTestbed({
       poolType: "CONSTANT_PRODUCT",
+    });
+    e2e_scenario(testBed);
+  });
+  it("e2e scenario nft", async () => {
+    const testBed = await makeFreshPoolTestbed({
+      poolType: "NFT_CONSTANT_PRODUCT",
     });
     e2e_scenario(testBed);
   });

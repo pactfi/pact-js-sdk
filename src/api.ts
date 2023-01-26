@@ -1,5 +1,5 @@
 import { crossFetch } from "./crossFetch";
-
+import { PoolType } from "./pool";
 /**
  * Options for calling the [[listPools]] function.
  */
@@ -141,6 +141,7 @@ export type CompileContractParams = {
    * An integer between 1 and 10_000.
    */
   fee_bps: number;
+  pool_type?: PoolType;
 };
 
 /**

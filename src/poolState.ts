@@ -12,7 +12,7 @@ import { parseState } from "./utils";
  */
 export type AppInternalState = {
   // Name and version may be missing in older contracts.
-  CONTRACT_NAME?: "PACT AMM" | "[SI] PACT AMM";
+  CONTRACT_NAME?: "PACT AMM" | "[SI] PACT AMM" | "PACT AMM [NFT]";
   VERSION?: number;
 
   L: number;
@@ -87,6 +87,9 @@ export function getPoolTypeFromInternalState(
 ): PoolType {
   if (state.CONTRACT_NAME === "PACT AMM") {
     return "CONSTANT_PRODUCT";
+  }
+  if (state.CONTRACT_NAME === "PACT AMM [NFT]") {
+    return "NFT_CONSTANT_PRODUCT";
   }
   if (state.CONTRACT_NAME === "[SI] PACT AMM") {
     return "STABLESWAP";
