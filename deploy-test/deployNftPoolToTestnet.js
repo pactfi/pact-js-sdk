@@ -3,7 +3,7 @@
  * Before start, run `npm i` in the `deploy-test` folder.
  *
  * To run the script, enter the following command with proper variables:
- * node deployPoolToTestnet.js --mnemonic='one two three' --assetA=0 --assetB=73483148 --feeBps=45
+ * node deployNftPoolToTestnet.js --mnemonic='one two three' --assetA=0 --assetB=73483148 --feeBps=45
  */
 const algosdk = require("algosdk");
 const pactsdk = require("@pactfi/pactsdk");
@@ -12,8 +12,8 @@ const argv = require('minimist')(process.argv.slice(2));
 const account = algosdk.mnemonicToSecretKey(argv.mnemonic);
 
 (async function() {
-  const algod = new algosdk.Algodv2("<api_key>", "https://betanet-algorand.pact.fi/ps2");
-  const pact = new pactsdk.PactClient(algod, {pactApiUrl: "https://api.testnet.pact.fi"});
+  const algod = new algosdk.Algodv2("<api_key>", "https://testnet-algorand.pact.fi/ps2");
+  const pact = new pactsdk.PactClient(algod, {pactApiUrl: "https://api.dev.pact.fi"});
   const poolCreator = pact.getPoolCreator({
     primary_asset_id: argv.assetA.toString(),
     secondary_asset_id: argv.assetB.toString(),
@@ -21,9 +21,8 @@ const account = algosdk.mnemonicToSecretKey(argv.mnemonic);
     pool_type: "NFT_CONSTANT_PRODUCT"
   });
 
- 
   try {
-    //  // DEPLOY
+    // DEPLOY
     console.log('Creating pool...');
     const initTxn = await poolCreator.preparePoolCreationTx(account.addr);
     const signedInitTx = initTxn.signTxn(account.sk);
@@ -43,8 +42,6 @@ const account = algosdk.mnemonicToSecretKey(argv.mnemonic);
     const createdPool = await poolCreator.sendFundingTxs(txnsBlobs);
     console.log('Created pool object:');
     console.log(createdPool);
-
-
 
     //Fetch pool by ID
     console.log('Fetch pool by ID');
@@ -89,5 +86,5 @@ const account = algosdk.mnemonicToSecretKey(argv.mnemonic);
   } catch(e) {
     console.error(e);
   }
-  
+
 })();

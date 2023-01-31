@@ -1,5 +1,6 @@
 import { crossFetch } from "./crossFetch";
 import { PoolType } from "./pool";
+
 /**
  * Options for calling the [[listPools]] function.
  */

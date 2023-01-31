@@ -429,6 +429,7 @@ function swapTestCase(poolType: PoolType) {
 
     await testSwap(reversedSwap, account);
   });
+
   it("swap for exact secondary with not equal liquidity", async () => {
     const { account, coin, pool } = await makeFreshPoolTestbed({
       poolType: poolType,
