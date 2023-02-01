@@ -12,8 +12,8 @@ const argv = require('minimist')(process.argv.slice(2));
 const account = algosdk.mnemonicToSecretKey(argv.mnemonic);
 
 (async function() {
-  const algod = new algosdk.Algodv2("<api_key>", "https://testnet-algorand.pact.fi/ps2");
-  const pact = new pactsdk.PactClient(algod, {pactApiUrl: "https://api.dev.pact.fi"});
+  const algod = new algosdk.Algodv2('', "https://testnet-algorand.pact.fi/ps2", '');
+  const pact = new pactsdk.PactClient(algod, {pactApiUrl: "https://api.testnet.pact.fi"});
   const poolCreator = pact.getPoolCreator({
     primary_asset_id: argv.assetA.toString(),
     secondary_asset_id: argv.assetB.toString(),
@@ -43,9 +43,10 @@ const account = algosdk.mnemonicToSecretKey(argv.mnemonic);
     console.log('Created pool object:');
     console.log(createdPool);
 
-    //Fetch pool by ID
+    // Fetch pool by ID
     console.log('Fetch pool by ID');
     let pool = await pact.fetchPoolById(poolId);
+    console.log(pool)
 
     // Opt-in for liquidity token.
     let optInTxn = await pool.liquidityAsset.prepareOptInTx(account.addr);
@@ -70,7 +71,7 @@ const account = algosdk.mnemonicToSecretKey(argv.mnemonic);
     const nft_coin = await pact.fetchAsset(parseInt(argv.assetB.toString()))
     optInTxn = await nft_coin.prepareOptInTx(account.addr);
     sentOptInTxn = await pact.algod.sendRawTransaction(optInTxn.signTxn(account.sk)).do();
-    await algosdk.waitForConfirmation(pact.algod, sentOptInTxn.txId, 2);
+    await algosdk.waitForConfirmation(pact.algod, sentOptInTxn.txId, 4);
     console.log(`OptIn transaction ${sentOptInTxn.txId}`);
 
     console.log('Prepare swap')
