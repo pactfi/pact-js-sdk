@@ -339,8 +339,8 @@ export class Farm {
         Math.max(
           0,
           (this.state.rpt[asset.index] ?? 0) - (userRpt[asset.index] ?? 0),
-        ),
-      ) * stakedAmount,
+        ) * stakedAmount,
+      ),
     ]);
   }
 

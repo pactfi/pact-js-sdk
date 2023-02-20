@@ -521,6 +521,104 @@ describe("Farming", () => {
     });
   });
 
+  it("estimate rewards with other stakers", async () => {
+    const testbed = await makeFreshFarmingTestbed();
+    await testbed.depositRewards({ [testbed.rewardAsset.index]: 10_000 }, 200);
+
+    // Account B
+    const [accountB, escrowB] = await makeNewAccountAndEscrow(
+      testbed.farm,
+      testbed.adminAccount,
+      [testbed.rewardAsset],
+    );
+
+    // Account C
+    const [accountC, escrowC] = await makeNewAccountAndEscrow(
+      testbed.farm,
+      testbed.adminAccount,
+      [testbed.rewardAsset],
+    );
+
+    // Stake user A.
+    await testbed.stake(100);
+    await waitRounds(20, testbed.userAccount);
+
+    // Stake user B.
+    let stakeTxs = escrowB.buildStakeTxs(900);
+    let stakeGroup = new TransactionGroup(stakeTxs);
+    await signAndSend(stakeGroup, accountB);
+    await waitRounds(50, testbed.userAccount);
+
+    await testbed.farm.updateState();
+    let atTime = new Date(testbed.farm.state.updatedAt.getTime() + 50_000);
+
+    // Estimate user A.
+    let userState = await testbed.escrow.fetchUserState();
+    expect(testbed.farm.estimateAccruedRewards(atTime, userState!)).toEqual({
+      [testbed.rewardAsset.index]: 1299,
+    });
+
+    // Estimate user B.
+    userState = await escrowB.fetchUserState();
+    expect(testbed.farm.estimateAccruedRewards(atTime, userState!)).toEqual({
+      [testbed.rewardAsset.index]: 2250,
+    });
+
+    // Stake user C.
+    stakeTxs = escrowC.buildStakeTxs(4000);
+    stakeGroup = new TransactionGroup(stakeTxs);
+    await signAndSend(stakeGroup, accountC);
+    await waitRounds(50, testbed.userAccount);
+
+    await testbed.farm.updateState();
+    atTime = new Date(testbed.farm.state.updatedAt.getTime() + 50_000);
+
+    // Estimate user A.
+    userState = await testbed.escrow.fetchUserState();
+    expect(testbed.farm.estimateAccruedRewards(atTime, userState!)).toEqual({
+      [testbed.rewardAsset.index]: 1355,
+    });
+
+    // Estimate user B.
+    userState = await escrowB.fetchUserState();
+    expect(testbed.farm.estimateAccruedRewards(atTime, userState!)).toEqual({
+      [testbed.rewardAsset.index]: 2745,
+    });
+
+    // Estimate user C.
+    userState = await escrowC.fetchUserState();
+    expect(testbed.farm.estimateAccruedRewards(atTime, userState!)).toEqual({
+      [testbed.rewardAsset.index]: 2000,
+    });
+
+    // Claim user A.
+    let balanceBefore = await testbed.rewardAsset.getHolding(
+      testbed.userAccount.addr,
+    );
+    await updateFarm(testbed.escrow, testbed.userAccount);
+    await testbed.claim();
+    let balanceAfter = await testbed.rewardAsset.getHolding(
+      testbed.userAccount.addr,
+    );
+    expect(balanceAfter! - balanceBefore!).toBe(1355);
+
+    // Claim user B.
+    balanceBefore = await testbed.rewardAsset.getHolding(accountB.addr);
+    await updateFarm(escrowB, accountB);
+    let claimTx = escrowB.buildClaimRewardsTx();
+    await signAndSend(claimTx, accountB);
+    balanceAfter = await testbed.rewardAsset.getHolding(accountB.addr);
+    expect(balanceAfter! - balanceBefore!).toBe(2771);
+
+    // Claim user C.
+    balanceBefore = await testbed.rewardAsset.getHolding(accountC.addr);
+    await updateFarm(escrowC, accountC);
+    claimTx = escrowC.buildClaimRewardsTx();
+    await signAndSend(claimTx, accountC);
+    balanceAfter = await testbed.rewardAsset.getHolding(accountC.addr);
+    expect(balanceAfter! - balanceBefore!).toBe(2199);
+  });
+
   it("deposit next rewards", async () => {
     const testbed = await makeFreshFarmingTestbed();
 
