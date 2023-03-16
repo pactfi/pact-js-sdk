@@ -210,7 +210,7 @@ export class Escrow {
     return algosdk.makeApplicationNoOpTxnFromObject({
       from: this.userAddress,
       appIndex: this.appId,
-      appArgs: [SEND_MESSAGE_SIG, new algosdk.ABIUintType(8).encode(0), note],
+      appArgs: [SEND_MESSAGE_SIG, new algosdk.ABIUintType(8).encode(1), note],
       accounts: [address],
       suggestedParams: spFee(this.suggestedParams, 2000),
     });

@@ -1222,15 +1222,18 @@ describe("Farming", () => {
     expect(testbed.farm.state.totalStaked).toBe(1000);
 
     // Commit to governance
+    const govAccount = algosdk.generateAccount();
     const sendMessageTx = testbed.escrow.buildSendMessageTx(
-      testbed.adminAccount.addr,
+      govAccount.addr,
       'af/gov1:j{"682482665":10000}',
     );
     const tx = await signAndSend(sendMessageTx, testbed.userAccount);
     const txinfo = await algod.pendingTransactionInformation(tx.txId).do();
-    const noteBytes = txinfo["inner-txns"][0]["txn"]["txn"]["note"];
-    const note = Buffer.from(noteBytes).toString();
+    const innerTx = txinfo["inner-txns"][0]["txn"]["txn"];
+    const note = Buffer.from(innerTx["note"]).toString();
     expect(note).toBe('af/gov1:j{"682482665":10000}');
+    expect(algosdk.encodeAddress(innerTx["snd"])).toBe(testbed.escrow.address);
+    expect(algosdk.encodeAddress(innerTx["rcv"])).toBe(govAccount.addr);
 
     // Simulate governance reward.
     const transferTx = testbed.algo.buildTransferTx(
