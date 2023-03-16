@@ -202,14 +202,15 @@ export class Escrow {
   }
 
   buildSendMessageTx(address: string, message: string): algosdk.Transaction {
+    const encodedMessage = encode(message);
+    const note = new Uint8Array([
+      ...new algosdk.ABIUintType(16).encode(encodedMessage.length),
+      ...encodedMessage,
+    ]);
     return algosdk.makeApplicationNoOpTxnFromObject({
       from: this.userAddress,
       appIndex: this.appId,
-      appArgs: [
-        SEND_MESSAGE_SIG,
-        new algosdk.ABIUintType(8).encode(0),
-        encode(message),
-      ],
+      appArgs: [SEND_MESSAGE_SIG, new algosdk.ABIUintType(8).encode(0), note],
       accounts: [address],
       suggestedParams: spFee(this.suggestedParams, 2000),
     });

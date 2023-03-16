@@ -1224,9 +1224,13 @@ describe("Farming", () => {
     // Commit to governance
     const sendMessageTx = testbed.escrow.buildSendMessageTx(
       testbed.adminAccount.addr,
-      "some message required by the Foundation",
+      'af/gov1:j{"682482665":10000}',
     );
-    await signAndSend(sendMessageTx, testbed.userAccount);
+    const tx = await signAndSend(sendMessageTx, testbed.userAccount);
+    const txinfo = await algod.pendingTransactionInformation(tx.txId).do();
+    const noteBytes = txinfo["inner-txns"][0]["txn"]["txn"]["note"];
+    const note = Buffer.from(noteBytes).toString();
+    expect(note).toBe('af/gov1:j{"682482665":10000}');
 
     // Simulate governance reward.
     const transferTx = testbed.algo.buildTransferTx(
