@@ -50,3 +50,18 @@ export function mapToObject<T, V, K extends string | number>(
   }
   return result;
 }
+
+export function getBoxMinBalance(lenBoxName: number, boxSize: number): number {
+  //https://developer.algorand.org/articles/smart-contract-storage-boxes/
+  if (lenBoxName > 64) {
+    throw new Error(
+      `"${lenBoxName}" is too long for a box name. Max 64 characters are allowed.`,
+    );
+  }
+  return 2500 + 400 * (lenBoxName + boxSize);
+}
+
+export async function getLastRound(algod: algosdk.Algodv2): Promise<number> {
+  const status = await algod.status().do();
+  return status["last-round"];
+}

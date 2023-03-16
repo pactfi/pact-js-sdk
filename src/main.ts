@@ -16,3 +16,5 @@ export * from "./types";
 export * from "./zap";
 export * from "./farming";
 export * from "./gasStation";
+export * from "./factories";
+export * from "./config";

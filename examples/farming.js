@@ -10,7 +10,7 @@ const account = algosdk.mnemonicToSecretKey('<mnemonic>');
 
 (async function() {
   const algod = new algosdk.Algodv2("<token>", "<url>");
-  const pact = new pactsdk.PactClient(algod);
+  const pact = new pactsdk.PactClient(algod, {network: "testnet"});
 
   const farm = await pact.farming.fetchFarmById(123)
   const escrow = await farm.fetchEscrowByAddress(address)

@@ -1,7 +1,0 @@
-{
-  "dependencies": {
-    "@pactfi/pactsdk": "file:../",
-    "algosdk": "^1.14.0",
-    "minimist": "^1.2.7"
-  }
-}

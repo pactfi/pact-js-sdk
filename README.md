@@ -39,12 +39,10 @@ const algod = new algosdk.Algodv2(token, url, port);
 const pact = new pactsdk.PactClient(algod);
 ```
 
-Optionally you can specify custom Pact API url. By default it directs to production API.
+By default, the client is configured to work with mainnet. You can easily change it by providing `network` argument. The `network` argument changes the default values in `pact.config` object. It contains things like API URL or global contract ids.
 
 ```js
-const pact = new pactsdk.PactClient(algod, {
-  pactApiUrl: "https://api.testnet.pact.fi",
-});
+const pact = new pactsdk.PactClient(algod, {network: "testnet"});
 ```
 
 Fetching pools by assets pair. It uses Pact API to retrieve the pool. Can return multiple pools with differing feeBps.

@@ -2,18 +2,12 @@ import algosdk from "algosdk";
 
 import { ApiListPoolsResponse, ListPoolsOptions, listPools } from "./api";
 import { Asset, fetchAssetByIndex } from "./asset";
+import { Config, Network, getConfig } from "./config";
 import { PactSdkError } from "./exceptions";
+import { ConstantProductFactory, getPoolFactory } from "./factories";
 import { PactFarmingClient } from "./farming";
+import { getGasStation, setGasStation } from "./gasStation";
 import { Pool, fetchPoolById, fetchPoolsByAssets } from "./pool";
-import { NewPoolParams, PoolCreator } from "./poolCreator";
-
-/** A type that contains all the possible options to be sent to a client. Currently this contains only the URL for the API. */
-export type AllClientOptions = {
-  pactApiUrl?: string;
-};
-
-/** ClientOptions an AllClientOptions populated as Optional allowing it to represent all possible AllClientOPtions values. */
-export type ClientOptions = Partial<AllClientOptions>;
 
 /**
  * An entry point for interacting with the SDK.
@@ -26,19 +20,12 @@ export type ClientOptions = Partial<AllClientOptions>;
  * import pactsdk from "@pactfi/pactsdk";
  *
  * const algod = new algosdk.Algodv2(token, url, port);
- * const pact = new pactsdk.PactClient(algod, {pactApiUrl: "https://api.testnet.pact.fi"});
+ * const pact = new pactsdk.PactClient(algod, {network: "testnet"});
  *
  * const algo = await pact.fetchAsset(0);
  * const otherCoin = await pact.fetchAsset(12345678);
  *
  * const pools = await pact.fetchPoolsByAssets(algo, otherCoin);
- *
- * const poolCreator = pact.getPoolCreator({
- *   primary_asset_id: '0',
- *   secondary_asset_id: '12345678',
- *   fee_bps: 5
- * });
- * ```
  */
 export class PactClient {
   /**
@@ -47,20 +34,32 @@ export class PactClient {
   algod: algosdk.Algodv2;
 
   /**
-   * Pact API URL to use.
+   * Client configuration with global contracts ids etc.
    */
-  pactApiUrl: string;
+  config: Config;
 
   farming: PactFarmingClient;
 
   /**
    * @param algod Algorand client to work with.
-   * @param options Client configuration options.
+   * @param network The Algorand network to use the client with. The configuration values depend on the chosen network.
+   * @param options Use it to overwrite configuration parameters.
    */
-  constructor(algod: algosdk.Algodv2, options: ClientOptions = {}) {
+  constructor(
+    algod: algosdk.Algodv2,
+    options: Partial<Config & { network: Network }> = {},
+  ) {
     this.algod = algod;
-    this.pactApiUrl = options.pactApiUrl ?? "https://api.pact.fi";
+    const network = options.network ?? "mainnet";
+    delete options.network;
+    this.config = getConfig(network, options);
     this.farming = new PactFarmingClient(algod);
+
+    try {
+      getGasStation();
+    } catch {
+      setGasStation(this.config.gasStationId);
+    }
   }
 
   /**
@@ -86,10 +85,10 @@ export class PactClient {
    * @returns Paginated list of pools.
    */
   listPools(options: ListPoolsOptions = {}): Promise<ApiListPoolsResponse> {
-    if (!this.pactApiUrl) {
-      throw new PactSdkError("No pactApiUrl provided.");
+    if (!this.config.apiUrl) {
+      throw new PactSdkError("No apiUrl provided in the config.");
     }
-    return listPools(this.pactApiUrl, options);
+    return listPools(this.config.apiUrl, options);
   }
 
   /**
@@ -110,7 +109,7 @@ export class PactClient {
       this.algod,
       primaryAsset,
       secondaryAsset,
-      this.pactApiUrl,
+      this.config.apiUrl,
     );
   }
 
@@ -126,13 +125,16 @@ export class PactClient {
   }
 
   /**
-   * Prepares a tool that allows creating new pools on Pact.
-   *
-   * @param params Params required in new pool creation.
-   *
-   * @returns Pool Creator.
+   * Gets the constant product pool factory according to the client's configuration.
    */
-  getPoolCreator(params: NewPoolParams) {
-    return new PoolCreator(params, this.pactApiUrl);
+  async getConstantProductPoolFactory(): Promise<ConstantProductFactory> {
+    return getPoolFactory(this.algod, "CONSTANT_PRODUCT", this.config);
+  }
+
+  /**
+   * Gets the NFT constant product pool factory according to the client's configuration.
+   */
+  async getNftConstantProductPoolFactory(): Promise<ConstantProductFactory> {
+    return getPoolFactory(this.algod, "NFT_CONSTANT_PRODUCT", this.config);
   }
 }

@@ -9,7 +9,7 @@ const account = algosdk.mnemonicToSecretKey('<mnemonic>');
 
 (async function() {
   const algod = new algosdk.Algodv2("<token>", "<url>");
-  const pact = new pactsdk.PactClient(algod);
+  const pact = new pactsdk.PactClient(algod, {network: "testnet"});
 
   const pool = await pact.fetchPoolById(620995314);  // ALGO/USDC
 

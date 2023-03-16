@@ -217,7 +217,7 @@ describe("Generic pool", () => {
   });
 });
 
-async function test_parsing_state(
+function test_parsing_state(
   testBed: PoolTestBed,
   pool: Pool,
   version: number,
@@ -255,6 +255,29 @@ describe("Constant product pool", () => {
   it("parsing state", async () => {
     const testBed = await makeFreshPoolTestbed({
       poolType: "CONSTANT_PRODUCT",
+    });
+    const pool = testBed.pool;
+    const state = {
+      A: 0,
+      ADMIN: testBed.account.addr,
+      ASSET_A: pool.primaryAsset.index,
+      ASSET_B: pool.secondaryAsset.index,
+      LTID: pool.liquidityAsset.index,
+      B: 0,
+      CONTRACT_NAME: "PACT AMM",
+      FEE_BPS: pool.feeBps,
+      L: 0,
+      PACT_FEE_BPS: 0,
+      TREASURY: testBed.account.addr,
+      VERSION: 201,
+    };
+    test_parsing_state(testBed, pool, 201, state, "CONSTANT_PRODUCT");
+  });
+
+  it("parsing state v2", async () => {
+    const testBed = await makeFreshPoolTestbed({
+      poolType: "CONSTANT_PRODUCT",
+      version: 2,
     });
     const pool = testBed.pool;
     const state = {

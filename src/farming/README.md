@@ -126,15 +126,20 @@ const simulatedRewards = farm.simulateNewStaker(atTime, 1_000_000)
 
 ## How to use staked asset in e.g. Algorand's governance?
 
-The users can you use the rekey mechanism to briefly gain full control over the escrow address.
-First, you must rekey the escrow to your account, then perform any transactions you want on the escrow address and then, rekey the escrow back to the contract.
-The SDK comes with a handy context manager that builds the transactions in the correct order for you.
+The following will send an empty transaction with a note to a given address on behalf of the escrow address. You can use this method for commitment and voting in the governance.
 
 ```js
 const sendMessageTx = escrow.buildSendMessageTx(
-    sender, "some message required by the Foundation"
+    govAddress, "some message required by the Foundation"
 )
 await signSendAndWait(sendMessageTx, sender, userPrivateKey)
+```
+
+Similarly, you can use the following method to claim the algo rewards from the governance.
+
+```js
+const withdrawAlgosTx = escrow.buildWithdrawAlgos()
+await signSendAndWait(withdrawAlgosTx, sender, userPrivateKey)
 ```
 
 ## How to destroy the escrow / regain access to staked funds in case of emergency?
