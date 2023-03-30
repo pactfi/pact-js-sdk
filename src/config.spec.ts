@@ -8,7 +8,7 @@ describe("config", () => {
     expect(pact.config).toEqual({
       apiUrl: "https://api.pact.fi",
       gasStationId: 1027956681,
-      factoryConstantProductId: 0,
+      factoryConstantProductId: 1072843805,
       factoryNftConstantProductId: 0,
     });
     expect(getGasStation().appId).toBe(1027956681);
@@ -17,7 +17,7 @@ describe("config", () => {
     expect(pact.config).toEqual({
       apiUrl: "https://api.pact.fi",
       gasStationId: 1027956681,
-      factoryConstantProductId: 0,
+      factoryConstantProductId: 1072843805,
       factoryNftConstantProductId: 0,
     });
 
@@ -41,7 +41,7 @@ describe("config", () => {
     expect(pact.config).toEqual({
       apiUrl: "overwritten_url",
       gasStationId: 1027956681,
-      factoryConstantProductId: 0,
+      factoryConstantProductId: 1072843805,
       factoryNftConstantProductId: 0,
     });
 

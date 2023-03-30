@@ -67,22 +67,6 @@ You can also fetch a pool by providing app id. This way the pool is retrieved di
 const pool = await pact.fetchPoolById(85767720);
 ```
 
-You can list all pools from the Pact API.
-
-```js
-const pools = await pact.listPools();
-console.log(pools);
-// {
-//   "count": 19,
-//   "offset": 0,
-//   "limit": 10,
-//   "results": [...],
-// }
-
-// The listing uses pagination and filtering. Look at typings for details.
-const pools = await pact.listPools({offset: 20, primary_asset__algoid: 37074699});
-```
-
 Before making the transactions you need to opt-in for the assets. There's no need to opt-in for algo.
 
 ```js
