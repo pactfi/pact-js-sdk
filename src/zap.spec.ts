@@ -1,15 +1,10 @@
 import { PactClient } from "./client";
-import {
-  addLiquidity,
-  algod,
-  createAsset,
-  makeFreshTestBed,
-  signAndSend,
-} from "./testUtils";
+import { addLiquidity, makeFreshPoolTestbed } from "./testPoolUtils";
+import { algod, createAsset, signAndSend } from "./testUtils";
 
 describe("zap", () => {
   it("Calculates all zap params", async () => {
-    const { pool, account } = await makeFreshTestBed({
+    const { pool, account } = await makeFreshPoolTestbed({
       poolType: "CONSTANT_PRODUCT",
       feeBps: 30,
       pactFeeBps: 10,
@@ -49,7 +44,7 @@ describe("zap", () => {
     ).toEqual(4871);
 
     // Perform a zap on unbalanced pool.
-    const { pool: unbalancedPool, account: acc2 } = await makeFreshTestBed({
+    const { pool: unbalancedPool, account: acc2 } = await makeFreshPoolTestbed({
       poolType: "CONSTANT_PRODUCT",
       feeBps: 30,
       pactFeeBps: 10,
@@ -90,7 +85,7 @@ describe("zap", () => {
 
   it("Validates pools and assets", async () => {
     // Zap should not be possible on Stableswaps.
-    const { pool: stablePool } = await makeFreshTestBed({
+    const { pool: stablePool } = await makeFreshPoolTestbed({
       poolType: "STABLESWAP",
     });
     expect(() =>
@@ -102,7 +97,7 @@ describe("zap", () => {
     ).toThrow("Zap can only be made on constant product pools.");
 
     // Zap should throw an error when wrong asset is passed.
-    const { pool, account, algo } = await makeFreshTestBed({
+    const { pool, account, algo } = await makeFreshPoolTestbed({
       poolType: "CONSTANT_PRODUCT",
     });
     const pact = new PactClient(algod);
@@ -128,7 +123,7 @@ describe("zap", () => {
   });
 
   it("Prepares tx group that can be signed and sent", async () => {
-    const { pool, account } = await makeFreshTestBed({
+    const { pool, account } = await makeFreshPoolTestbed({
       poolType: "CONSTANT_PRODUCT",
     });
 

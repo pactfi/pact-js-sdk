@@ -36,7 +36,7 @@ export function decodeUint64Array(data: string): number[] {
   return numbers;
 }
 
-export function decodeStringFromGlobalState(encoded: string) {
+export function decodeBase64(encoded: string) {
   return decode(Buffer.from(encoded, "base64"));
 }
 

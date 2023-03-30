@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "algosdk": "^1.14.0",
-    "@pactfi/pactsdk": "file:../"
-  }
-}

@@ -1,6 +1,6 @@
 {
   "name": "@pactfi/pactsdk",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "JavaScript SDK for Pact smart contracts",
   "main": "dist/cjs/@pactfi/pactsdk.js",
   "browser": "dist/browser/@pactfi/pactsdk.min.js",
@@ -20,7 +20,7 @@
   },
   "homepage": "https://github.com/pactfi/pact-js-sdk#readme",
   "scripts": {
-    "test": "jest",
+    "test": "jest --runInBand",
     "format": "eslint 'src/**/*.{js,ts}' --fix",
     "lint": "eslint 'src/**/*.{js,ts}'",
     "build": "rollup --config rollup.config.ts --configPlugin typescript",
@@ -40,7 +40,7 @@
     }
   },
   "dependencies": {
-    "algosdk": "^1.14.0",
+    "algosdk": "^2.0.0",
     "buffer": "^6.0.3",
     "decimal.js": "^10.3.1"
   },

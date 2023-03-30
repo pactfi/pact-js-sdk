@@ -39,12 +39,10 @@ const algod = new algosdk.Algodv2(token, url, port);
 const pact = new pactsdk.PactClient(algod);
 ```
 
-Optionally you can specify custom Pact API url. By default it directs to production API.
+By default, the client is configured to work with mainnet. You can easily change it by providing `network` argument. The `network` argument changes the default values in `pact.config` object. It contains things like API URL or global contract ids.
 
 ```js
-const pact = new pactsdk.PactClient(algod, {
-  pactApiUrl: "https://api.testnet.pact.fi",
-});
+const pact = new pactsdk.PactClient(algod, {network: "testnet"});
 ```
 
 Fetching pools by assets pair. It uses Pact API to retrieve the pool. Can return multiple pools with differing feeBps.
@@ -67,22 +65,6 @@ You can also fetch a pool by providing app id. This way the pool is retrieved di
 
 ```js
 const pool = await pact.fetchPoolById(85767720);
-```
-
-You can list all pools from the Pact API.
-
-```js
-const pools = await pact.listPools();
-console.log(pools);
-// {
-//   "count": 19,
-//   "offset": 0,
-//   "limit": 10,
-//   "results": [...],
-// }
-
-// The listing uses pagination and filtering. Look at typings for details.
-const pools = await pact.listPools({offset: 20, primary_asset__algoid: 37074699});
 ```
 
 Before making the transactions you need to opt-in for the assets. There's no need to opt-in for algo.

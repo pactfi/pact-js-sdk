@@ -3,15 +3,12 @@ import { PactClient } from "./client";
 import { Pool } from "./pool";
 import { StableswapPoolParams } from "./pool";
 import {
-  TestBed,
-  algod,
-  createAsset,
-  deployExchangeContract,
+  PoolTestBed,
+  deployConstantProductContract,
   deployStableswapContract,
-  makeFreshTestBed,
-  newAccount,
-  signAndSend,
-} from "./testUtils";
+  makeFreshPoolTestbed,
+} from "./testPoolUtils";
+import { algod, createAsset, newAccount, signAndSend } from "./testUtils";
 
 let poolsApiResults: any[];
 
@@ -26,10 +23,10 @@ jest.mock("./crossFetch", () => {
 });
 
 describe("Generic pool", () => {
-  let testBed: TestBed;
+  let testBed: PoolTestBed;
 
   beforeAll(async () => {
-    testBed = await makeFreshTestBed();
+    testBed = await makeFreshPoolTestbed();
 
     poolsApiResults = [
       {
@@ -97,7 +94,7 @@ describe("Generic pool", () => {
   });
 
   it("fetching pool by assets with multiple results", async () => {
-    const second_app_id = await deployExchangeContract(
+    const second_app_id = await deployConstantProductContract(
       testBed.account,
       testBed.algo.index,
       testBed.coin.index,
@@ -187,7 +184,11 @@ describe("Generic pool", () => {
     const coinAIndex = await createAsset(account, "coinA", 0, 2 ** 50 - 1);
     const coinBIndex = await createAsset(account, "coinB", 0, 2 ** 50 - 1);
 
-    const appId = await deployExchangeContract(account, coinAIndex, coinBIndex);
+    const appId = await deployConstantProductContract(
+      account,
+      coinAIndex,
+      coinBIndex,
+    );
     const pool = await pact.fetchPoolById(appId);
 
     expect(pool.calculator.isEmpty).toBe(true);
@@ -216,16 +217,17 @@ describe("Generic pool", () => {
   });
 });
 
-async function test_parsing_state(
-  testBed: TestBed,
+function test_parsing_state(
+  testBed: PoolTestBed,
   pool: Pool,
   version: number,
   state: object,
+  poolType: string,
 ) {
   expect(pool.primaryAsset.index).toBe(testBed.algo.index);
   expect(pool.secondaryAsset.index).toBe(testBed.coin.index);
 
-  expect(pool.poolType).toBe("CONSTANT_PRODUCT");
+  expect(pool.poolType).toBe(poolType);
   expect(pool.version).toBe(version);
 
   expect(pool.internalState).toEqual(state);
@@ -233,7 +235,7 @@ async function test_parsing_state(
 
 describe("Constant product pool", () => {
   it("parsing state version 1", async () => {
-    const testBed = await makeFreshTestBed({
+    const testBed = await makeFreshPoolTestbed({
       poolType: "CONSTANT_PRODUCT",
       version: 1,
     });
@@ -247,11 +249,36 @@ describe("Constant product pool", () => {
       FEE_BPS: pool.feeBps,
       L: 0,
     };
-    test_parsing_state(testBed, pool, 0, state);
+    test_parsing_state(testBed, pool, 0, state, "CONSTANT_PRODUCT");
   });
 
   it("parsing state", async () => {
-    const testBed = await makeFreshTestBed({ poolType: "CONSTANT_PRODUCT" });
+    const testBed = await makeFreshPoolTestbed({
+      poolType: "CONSTANT_PRODUCT",
+    });
+    const pool = testBed.pool;
+    const state = {
+      A: 0,
+      ADMIN: testBed.account.addr,
+      ASSET_A: pool.primaryAsset.index,
+      ASSET_B: pool.secondaryAsset.index,
+      LTID: pool.liquidityAsset.index,
+      B: 0,
+      CONTRACT_NAME: "PACT AMM",
+      FEE_BPS: pool.feeBps,
+      L: 0,
+      PACT_FEE_BPS: 0,
+      TREASURY: testBed.account.addr,
+      VERSION: 201,
+    };
+    test_parsing_state(testBed, pool, 201, state, "CONSTANT_PRODUCT");
+  });
+
+  it("parsing state v2", async () => {
+    const testBed = await makeFreshPoolTestbed({
+      poolType: "CONSTANT_PRODUCT",
+      version: 2,
+    });
     const pool = testBed.pool;
     const state = {
       A: 0,
@@ -269,10 +296,32 @@ describe("Constant product pool", () => {
       TREASURY: testBed.account.addr,
       VERSION: 2,
     };
-    test_parsing_state(testBed, pool, 2, state);
+    test_parsing_state(testBed, pool, 2, state, "CONSTANT_PRODUCT");
   });
 
-  async function e2e_scenario(testBed: TestBed) {
+  it("parsing state nft", async () => {
+    const testBed = await makeFreshPoolTestbed({
+      poolType: "NFT_CONSTANT_PRODUCT",
+    });
+    const pool = testBed.pool;
+    const state = {
+      A: 0,
+      ADMIN: testBed.account.addr,
+      ASSET_A: pool.primaryAsset.index,
+      ASSET_B: pool.secondaryAsset.index,
+      LTID: pool.liquidityAsset.index,
+      B: 0,
+      CONTRACT_NAME: "PACT AMM [NFT]",
+      FEE_BPS: pool.feeBps,
+      L: 0,
+      PACT_FEE_BPS: 0,
+      TREASURY: testBed.account.addr,
+      VERSION: 200,
+    };
+    test_parsing_state(testBed, pool, 200, state, "NFT_CONSTANT_PRODUCT");
+  });
+
+  async function e2e_scenario(testBed: PoolTestBed) {
     const { account, algo, coin, pool } = testBed;
     expect(pool.state).toEqual({
       totalLiquidity: 0,
@@ -352,7 +401,7 @@ describe("Constant product pool", () => {
   }
 
   it("e2e scenario version 1", async () => {
-    const testBed = await makeFreshTestBed({
+    const testBed = await makeFreshPoolTestbed({
       poolType: "CONSTANT_PRODUCT",
       version: 1,
     });
@@ -360,21 +409,31 @@ describe("Constant product pool", () => {
   });
 
   it("e2e scenario", async () => {
-    const testBed = await makeFreshTestBed({
+    const testBed = await makeFreshPoolTestbed({
       poolType: "CONSTANT_PRODUCT",
+    });
+    e2e_scenario(testBed);
+  });
+  it("e2e scenario nft", async () => {
+    const testBed = await makeFreshPoolTestbed({
+      poolType: "NFT_CONSTANT_PRODUCT",
     });
     e2e_scenario(testBed);
   });
 
   it("Pool e2e scenario for asset with 19 decimals", async () => {
-    const testBed = await makeFreshTestBed({
+    const testBed = await makeFreshPoolTestbed({
       poolType: "CONSTANT_PRODUCT",
     });
     const { account, algo, pact } = testBed;
 
     const coinBIndex = await createAsset(account, "coinA", 19, 10 ** 19);
 
-    const appId = await deployExchangeContract(account, algo.index, coinBIndex);
+    const appId = await deployConstantProductContract(
+      account,
+      algo.index,
+      coinBIndex,
+    );
     const pool = await pact.fetchPoolById(appId);
 
     expect(pool.calculator.isEmpty).toBe(true);
@@ -446,7 +505,7 @@ describe("Constant product pool", () => {
 
 describe("Stableswap pool", () => {
   it("parsing state", async () => {
-    const testBed = await makeFreshTestBed({ poolType: "STABLESWAP" });
+    const testBed = await makeFreshPoolTestbed({ poolType: "STABLESWAP" });
     const pact = new PactClient(algod);
 
     const pool = await pact.fetchPoolById(testBed.pool.appId);
