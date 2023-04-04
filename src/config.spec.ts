@@ -9,7 +9,7 @@ describe("config", () => {
       apiUrl: "https://api.pact.fi",
       gasStationId: 1027956681,
       factoryConstantProductId: 1072843805,
-      factoryNftConstantProductId: 0,
+      factoryNftConstantProductId: 1076423760,
     });
     expect(getGasStation().appId).toBe(1027956681);
 
@@ -18,7 +18,7 @@ describe("config", () => {
       apiUrl: "https://api.pact.fi",
       gasStationId: 1027956681,
       factoryConstantProductId: 1072843805,
-      factoryNftConstantProductId: 0,
+      factoryNftConstantProductId: 1076423760,
     });
 
     pact = new PactClient(algod, { network: "testnet" });
@@ -42,7 +42,7 @@ describe("config", () => {
       apiUrl: "overwritten_url",
       gasStationId: 1027956681,
       factoryConstantProductId: 1072843805,
-      factoryNftConstantProductId: 0,
+      factoryNftConstantProductId: 1076423760,
     });
 
     pact = new PactClient(algod, {
