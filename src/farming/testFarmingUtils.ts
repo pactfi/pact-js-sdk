@@ -12,11 +12,7 @@ import {
   waitRounds,
 } from "../testUtils";
 import { TransactionGroup } from "../transactionGroup";
-import {
-  Escrow,
-  buildDeployEscrowTxs,
-  fetchEscrowApprovalProgram,
-} from "./escrow";
+import { Escrow, buildDeployEscrowTxs } from "./escrow";
 import { Farm } from "./farm";
 import { FarmingRewards } from "./farmState";
 
@@ -224,15 +220,10 @@ export async function deployEscrowForAccount(
   userAccount: algosdk.Account,
   suggestedParams: algosdk.SuggestedParams,
 ): Promise<Escrow> {
-  const escrowApprovalProgram = await fetchEscrowApprovalProgram(
-    algod,
-    farm.appId,
-  );
   const deployTxs = buildDeployEscrowTxs(
     userAccount.addr,
     farm.appId,
     farm.stakedAsset.index,
-    escrowApprovalProgram,
     suggestedParams,
   );
   await signAndSend(new TransactionGroup(deployTxs), userAccount);

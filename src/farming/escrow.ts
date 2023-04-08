@@ -14,6 +14,8 @@ import { getGasStation } from "../gasStation";
 import { parseState, spFee } from "../utils";
 import { Farm, fetchFarmById } from "./farm";
 
+const COMPILED_HUSK_APPROVAL =
+  "CCACAAExGEAASYALTWFzdGVyQXBwSUQ2GgEXwDJnsYEGshA2GgIXwDKyGIAEtzVf0bIaIrIBs7GBBLIQMgqyFCKyEjYaAxfAMLIRIrIBsyNCAAEjQw==";
 const COMPILED_CLEAR_PROGRAM_B64 = "CIEBQw==";
 
 // create(application,application,asset)void
@@ -46,9 +48,12 @@ export function buildDeployEscrowTxs(
   sender: string,
   farmAppId: number,
   stakedAssetId: number,
-  approvalProgram: Uint8Array,
   suggestedParams: algosdk.SuggestedParams,
 ): algosdk.Transaction[] {
+  const approvalProgram = new Uint8Array(
+    Buffer.from(COMPILED_HUSK_APPROVAL, "base64"),
+  );
+
   const clearProgram = new Uint8Array(
     Buffer.from(COMPILED_CLEAR_PROGRAM_B64, "base64"),
   );
@@ -66,7 +71,7 @@ export function buildDeployEscrowTxs(
     numGlobalByteSlices: 0,
     numLocalInts: 0,
     numLocalByteSlices: 0,
-    suggestedParams: spFee(suggestedParams, 4000),
+    suggestedParams: spFee(suggestedParams, 5000),
     foreignApps: [farmAppId, gasStation.appId],
     foreignAssets: [stakedAssetId],
     appArgs: [CREATE_SIG, ...encodeArray([1, 2, 0])],

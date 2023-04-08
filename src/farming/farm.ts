@@ -9,12 +9,7 @@ import { decodeUint64Array, encodeArray } from "../encoding";
 import { PactSdkError } from "../exceptions";
 import { getGasStation } from "../gasStation";
 import { mapToObject, parseState, spFee } from "../utils";
-import {
-  Escrow,
-  buildDeployEscrowTxs,
-  fetchEscrowApprovalProgram,
-  fetchEscrowById,
-} from "./escrow";
+import { Escrow, buildDeployEscrowTxs, fetchEscrowById } from "./escrow";
 import {
   FarmInternalState,
   FarmState,
@@ -355,22 +350,10 @@ export class Farm {
   }
 
   async prepareDeployEscrowTxs(sender: string): Promise<algosdk.Transaction[]> {
-    const approvalProgram = await fetchEscrowApprovalProgram(
-      this.algod,
-      this.appId,
-    );
-    return this.buildDeployEscrowTxs(sender, approvalProgram);
-  }
-
-  buildDeployEscrowTxs(
-    sender: string,
-    approvalProgram: Uint8Array,
-  ): algosdk.Transaction[] {
     return buildDeployEscrowTxs(
       sender,
       this.appId,
       this.stakedAsset.index,
-      approvalProgram,
       this.suggestedParams,
     );
   }

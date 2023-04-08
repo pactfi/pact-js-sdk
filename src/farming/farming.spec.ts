@@ -94,7 +94,7 @@ describe("Farming", () => {
       updatedAt: lastBlock - 6,
       admin: testbed.adminAccount.addr,
       updater: testbed.adminAccount.addr,
-      version: 100,
+      version: 101,
     });
     expect(testbed.farm.state).toEqual({
       stakedAsset: testbed.stakedAsset,
@@ -111,7 +111,7 @@ describe("Farming", () => {
       updatedAt: new Date((lastBlock - 6) * 1000),
       admin: testbed.adminAccount.addr,
       updater: testbed.adminAccount.addr,
-      version: 100,
+      version: 101,
     });
 
     await testbed.depositRewards({ [testbed.rewardAsset.index]: 2000 }, 100);
@@ -132,7 +132,7 @@ describe("Farming", () => {
       updatedAt: new Date(lastBlock * 1000),
       admin: testbed.adminAccount.addr,
       updater: testbed.adminAccount.addr,
-      version: 100,
+      version: 101,
     });
 
     await testbed.stake(1000);
@@ -154,7 +154,7 @@ describe("Farming", () => {
       updatedAt: new Date(lastBlock * 1000),
       admin: testbed.adminAccount.addr,
       updater: testbed.adminAccount.addr,
-      version: 100,
+      version: 101,
     });
 
     const userState = await testbed.escrow.fetchUserState();
@@ -202,7 +202,7 @@ describe("Farming", () => {
       totalStaked: 1000,
       admin: testbed.adminAccount.addr,
       updater: testbed.adminAccount.addr,
-      version: 100,
+      version: 101,
     });
 
     // Wait some time and unstake all.
@@ -235,7 +235,7 @@ describe("Farming", () => {
       totalStaked: 0,
       admin: testbed.adminAccount.addr,
       updater: testbed.adminAccount.addr,
-      version: 100,
+      version: 101,
     });
 
     // Claim rewards.
@@ -265,7 +265,7 @@ describe("Farming", () => {
       totalStaked: 0,
       admin: testbed.adminAccount.addr,
       updater: testbed.adminAccount.addr,
-      version: 100,
+      version: 101,
     });
 
     holding = await testbed.rewardAsset.getHolding(testbed.farm.appAddress);
