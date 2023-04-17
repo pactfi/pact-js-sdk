@@ -26,7 +26,7 @@ describe("config", () => {
       apiUrl: "https://api.testnet.pact.fi",
       gasStationId: 156575978,
       factoryConstantProductId: 166540424,
-      factoryNftConstantProductId: 166540708,
+      factoryNftConstantProductId: 190269485,
     });
 
     pact = new PactClient(algod, { network: "dev" });
