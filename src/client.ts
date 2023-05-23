@@ -6,6 +6,11 @@ import { Config, Network, getConfig } from "./config";
 import { PactSdkError } from "./exceptions";
 import { ConstantProductFactory, getPoolFactory } from "./factories";
 import { PactFarmingClient } from "./farming";
+import {
+  FolksLendingPool,
+  FolksLendingPoolAdapter,
+  fetchFolksLendingPool,
+} from "./folksLendingPool";
 import { getGasStation, setGasStation } from "./gasStation";
 import { Pool, fetchPoolById, fetchPoolsByAssets } from "./pool";
 
@@ -124,6 +129,24 @@ export class PactClient {
    */
   fetchPoolById(appId: number): Promise<Pool> {
     return fetchPoolById(this.algod, appId);
+  }
+
+  fetchFolksLendingPool(appId: number): Promise<FolksLendingPool> {
+    return fetchFolksLendingPool(this.algod, appId);
+  }
+
+  getFolksLendingPoolAdapter(
+    pact_pool: Pool,
+    primary_lending_pool: FolksLendingPool,
+    secondary_lending_pool: FolksLendingPool,
+  ): FolksLendingPoolAdapter {
+    return new FolksLendingPoolAdapter(
+      this.algod,
+      this.config.folksLendingPoolAdapterId,
+      pact_pool,
+      primary_lending_pool,
+      secondary_lending_pool,
+    );
   }
 
   /**

@@ -10,6 +10,7 @@ describe("config", () => {
       gasStationId: 1027956681,
       factoryConstantProductId: 1072843805,
       factoryNftConstantProductId: 1076423760,
+      folksLendingPoolAdapterId: 0,
     });
     expect(getGasStation().appId).toBe(1027956681);
 
@@ -19,6 +20,7 @@ describe("config", () => {
       gasStationId: 1027956681,
       factoryConstantProductId: 1072843805,
       factoryNftConstantProductId: 1076423760,
+      folksLendingPoolAdapterId: 0,
     });
 
     pact = new PactClient(algod, { network: "testnet" });
@@ -27,6 +29,7 @@ describe("config", () => {
       gasStationId: 156575978,
       factoryConstantProductId: 166540424,
       factoryNftConstantProductId: 190269485,
+      folksLendingPoolAdapterId: 215068156,
     });
 
     pact = new PactClient(algod, { network: "dev" });
@@ -35,6 +38,7 @@ describe("config", () => {
       gasStationId: 0,
       factoryConstantProductId: 0,
       factoryNftConstantProductId: 0,
+      folksLendingPoolAdapterId: 0,
     });
 
     pact = new PactClient(algod, { apiUrl: "overwritten_url" });
@@ -43,6 +47,7 @@ describe("config", () => {
       gasStationId: 1027956681,
       factoryConstantProductId: 1072843805,
       factoryNftConstantProductId: 1076423760,
+      folksLendingPoolAdapterId: 0,
     });
 
     pact = new PactClient(algod, {
@@ -54,6 +59,7 @@ describe("config", () => {
       gasStationId: 0,
       factoryConstantProductId: 123,
       factoryNftConstantProductId: 0,
+      folksLendingPoolAdapterId: 0,
     });
   });
 });
