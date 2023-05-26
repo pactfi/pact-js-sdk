@@ -18,3 +18,4 @@ export * from "./farming";
 export * from "./gasStation";
 export * from "./factories";
 export * from "./config";
+export * from "./folksLendingPool";

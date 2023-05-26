@@ -14,6 +14,12 @@ import {
 import { getGasStation, setGasStation } from "./gasStation";
 import { Pool, fetchPoolById, fetchPoolsByAssets } from "./pool";
 
+export type FolksLendingPoolAdapterOptions = {
+  pactPool: Pool;
+  primaryLendingPool: FolksLendingPool;
+  secondaryLendingPool: FolksLendingPool;
+};
+
 /**
  * An entry point for interacting with the SDK.
  *
@@ -136,16 +142,14 @@ export class PactClient {
   }
 
   getFolksLendingPoolAdapter(
-    pact_pool: Pool,
-    primary_lending_pool: FolksLendingPool,
-    secondary_lending_pool: FolksLendingPool,
+    options: FolksLendingPoolAdapterOptions,
   ): FolksLendingPoolAdapter {
     return new FolksLendingPoolAdapter(
       this.algod,
       this.config.folksLendingPoolAdapterId,
-      pact_pool,
-      primary_lending_pool,
-      secondary_lending_pool,
+      options.pactPool,
+      options.primaryLendingPool,
+      options.secondaryLendingPool,
     );
   }
 

@@ -17,10 +17,10 @@ const FOLKS_POOL_B = 147170678; // USDC
 
   // Folks pools.
   console.log("Fetching folks lending pools...");
-  const primaryFolksPool = await pact.fetchFolksLendingPool(
+  const primaryLendingPool = await pact.fetchFolksLendingPool(
     folksLendingPoolIds[0]
   );
-  const secondaryFolksPool = await pact.fetchFolksLendingPool(
+  const secondaryLendingPool = await pact.fetchFolksLendingPool(
     folksLendingPoolIds[1]
   );
 
@@ -28,22 +28,22 @@ const FOLKS_POOL_B = 147170678; // USDC
   console.log("Fetching or creating pact pool...");
   const factory = await pact.getConstantProductPoolFactory();
   const poolBuildParams = {
-    primaryAssetId: primaryFolksPool.fAsset.index,
-    secondaryAssetId: secondaryFolksPool.fAsset.index,
+    primaryAssetId: primaryLendingPool.fAsset.index,
+    secondaryAssetId: secondaryLendingPool.fAsset.index,
     feeBps: 2,
   };
-  const [pact_pool, created] = await factory.buildOrGet(
+  const [pactPool, created] = await factory.buildOrGet(
     account.addr,
     poolBuildParams,
     (txGroup) => Promise.resolve(txGroup.signTxn(account.sk))
   );
 
   // Adapter.
-  const lendingPoolAdapter = pact.getFolksLendingPoolAdapter(
-    pact_pool,
-    primaryFolksPool,
-    secondaryFolksPool
-  );
+  const lendingPoolAdapter = pact.getFolksLendingPoolAdapter({
+    pactPool,
+    primaryLendingPool,
+    secondaryLendingPool,
+  });
 
   let txGroup;
 
@@ -51,15 +51,14 @@ const FOLKS_POOL_B = 147170678; // USDC
     // Adapter opt-in to all the assets.
     console.log("Opting in adapter to assets...");
     const assetIds = [
-      primaryFolksPool.originalAsset.index,
-      secondaryFolksPool.originalAsset.index,
-      primaryFolksPool.fAsset.index,
-      secondaryFolksPool.fAsset.index,
-      pact_pool.liquidityAsset.index,
+      primaryLendingPool.originalAsset.index,
+      secondaryLendingPool.originalAsset.index,
+      primaryLendingPool.fAsset.index,
+      secondaryLendingPool.fAsset.index,
+      pactPool.liquidityAsset.index,
     ];
     txGroup = await lendingPoolAdapter.prepareOptInToAssetTxGroup(
-      account.addr,
-      assetIds
+      {address:account.addr, assetIds}
     );
     await algod.sendRawTransaction(txGroup.signTxn(account.sk)).do();
     console.log(txGroup.groupId);
@@ -68,36 +67,39 @@ const FOLKS_POOL_B = 147170678; // USDC
 
   // Add liquidity.
   console.log("Adding liquidity...");
-  const liquidityAddition = lendingPoolAdapter.prepareAddLiquidity(
-    100_000,
-    100_000
-  );
-  txGroup = await lendingPoolAdapter.prepareAddLiquidityTxGroup(
-    account.addr,
-    liquidityAddition
-  );
+  const liquidityAddition = lendingPoolAdapter.prepareAddLiquidity({
+    primaryAssetAmount: 100_000,
+    secondaryAssetAmount: 100_000,
+  });
+  txGroup = await lendingPoolAdapter.prepareAddLiquidityTxGroup({
+    address: account.addr,
+    liquidityAddition,
+  });
   await algod.sendRawTransaction(txGroup.signTxn(account.sk)).do();
   console.log(txGroup.groupId);
   console.log();
 
   // Swap.
   console.log("Swapping...");
-  const swap = lendingPoolAdapter.prepareSwap(
-    primaryFolksPool.originalAsset,
-    100_000,
-    100
-  );
-  txGroup = await lendingPoolAdapter.prepareSwapTxGroup(swap, account.addr);
+  const swap = lendingPoolAdapter.prepareSwap({
+    amount: 100_000,
+    asset: primaryLendingPool.originalAsset,
+    slippagePct: 100,
+  });
+  txGroup = await lendingPoolAdapter.prepareSwapTxGroup({
+    address: account.addr,
+    swap,
+  });
   await algod.sendRawTransaction(txGroup.signTxn(account.sk)).do();
   console.log(txGroup.groupId);
   console.log();
 
   // Remove liquidity.
   console.log("Removing liquidity...");
-  txGroup = await lendingPoolAdapter.prepareRemoveLiquidityTxGroup(
-    account.addr,
-    20_000
-  );
+  txGroup = await lendingPoolAdapter.prepareRemoveLiquidityTxGroup({
+    address: account.addr,
+    amount: 20_000,
+  });
   await algod.sendRawTransaction(txGroup.signTxn(account.sk)).do();
   console.log(txGroup.groupId);
 })();

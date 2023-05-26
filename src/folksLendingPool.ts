@@ -3,7 +3,14 @@ import algosdk from "algosdk";
 import { LiquidityAddition } from "./addLiquidity";
 import { Asset, fetchAssetByIndex } from "./asset";
 import { PactSdkError } from "./exceptions";
-import { Pool } from "./pool";
+import {
+  AddLiquidityOptions,
+  Pool,
+  RemoveLiquidityOptions,
+  SuggestedParamsOption,
+  SwapOptions,
+  SwapTxOptions,
+} from "./pool";
 import { Swap } from "./swap";
 import { TransactionGroup } from "./transactionGroup";
 import { parseState, spFee } from "./utils";
@@ -35,6 +42,18 @@ const SWAP_FEE = 14_000;
 const SECONDS_IN_YEAR = 365 * 24 * 60 * 60;
 const ONE_14_DP = 1e14;
 const ONE_16_DP = 1e16;
+
+export type AddLendingLiquidityTxOptions = {
+  liquidityAddition: LendingLiquidityAddition;
+
+  /** Account address that will deposit the primary and secondary assets and receive the LP token. */
+  address: string;
+};
+
+export type OptInAssetToAdapterTxOptions = {
+  address: string;
+  assetIds: number[];
+};
 
 export class FolksLendingPool {
   constructor(
@@ -183,52 +202,42 @@ export class FolksLendingPoolAdapter {
     return assetsMap[fAsset.index];
   }
 
-  prepareAddLiquidity(
-    primaryAssetAmount: number,
-    secondaryAssetAmount: number,
-  ): LendingLiquidityAddition {
+  prepareAddLiquidity(options: AddLiquidityOptions): LendingLiquidityAddition {
     return new LendingLiquidityAddition(
       this,
-      primaryAssetAmount,
-      secondaryAssetAmount,
+      options.primaryAssetAmount,
+      options.secondaryAssetAmount,
     );
   }
 
   async prepareAddLiquidityTxGroup(
-    address: string,
-    liquidityAddition: LendingLiquidityAddition,
+    options: AddLendingLiquidityTxOptions,
   ): Promise<TransactionGroup> {
     const suggestedParams = await this.algod.getTransactionParams().do();
-    const txs = this.buildAddLiquidityTxs(
-      address,
-      liquidityAddition.liquidityAddition,
-      suggestedParams,
-    );
+    const txs = this.buildAddLiquidityTxs({ ...options, suggestedParams });
     return new TransactionGroup(txs);
   }
 
   buildAddLiquidityTxs(
-    address: string,
-    liquidityAddition: LiquidityAddition,
-    suggestedParams: algosdk.SuggestedParams,
+    options: AddLendingLiquidityTxOptions & SuggestedParamsOption,
   ): algosdk.Transaction[] {
     const tx1 = this.primaryLendingPool.originalAsset.buildTransferTx(
-      address,
+      options.address,
       this.escrowAddress,
-      liquidityAddition.primaryAssetAmount,
-      suggestedParams,
+      options.liquidityAddition.primaryAssetAmount,
+      options.suggestedParams,
     );
 
     const tx2 = this.secondaryLendingPool.originalAsset.buildTransferTx(
-      address,
+      options.address,
       this.escrowAddress,
-      liquidityAddition.secondaryAssetAmount,
-      suggestedParams,
+      options.liquidityAddition.secondaryAssetAmount,
+      options.suggestedParams,
     );
 
     const tx3 = algosdk.makeApplicationNoOpTxnFromObject({
-      from: address,
-      suggestedParams: spFee(suggestedParams, PRE_ADD_LIQ_FEE),
+      from: options.address,
+      suggestedParams: spFee(options.suggestedParams, PRE_ADD_LIQ_FEE),
       appIndex: this.appId,
       appArgs: [
         PRE_ADD_LIQUIDITY_SIG,
@@ -258,8 +267,8 @@ export class FolksLendingPoolAdapter {
     });
 
     const tx4 = algosdk.makeApplicationNoOpTxnFromObject({
-      from: address,
-      suggestedParams: spFee(suggestedParams, ADD_LIQ_FEE),
+      from: options.address,
+      suggestedParams: spFee(options.suggestedParams, ADD_LIQ_FEE),
       appIndex: this.appId,
       appArgs: [
         ADD_LIQUIDITY_SIG,
@@ -284,29 +293,26 @@ export class FolksLendingPoolAdapter {
   }
 
   async prepareRemoveLiquidityTxGroup(
-    address: string,
-    amount: number,
+    options: RemoveLiquidityOptions,
   ): Promise<TransactionGroup> {
     const suggestedParams = await this.algod.getTransactionParams().do();
-    const txs = this.buildRemoveLiquidityTxs(address, amount, suggestedParams);
+    const txs = this.buildRemoveLiquidityTxs({ ...options, suggestedParams });
     return new TransactionGroup(txs);
   }
 
   buildRemoveLiquidityTxs(
-    address: string,
-    amount: number,
-    suggestedParams: algosdk.SuggestedParams,
+    options: RemoveLiquidityOptions & SuggestedParamsOption,
   ): algosdk.Transaction[] {
     const tx1 = this.pactPool.liquidityAsset.buildTransferTx(
-      address,
+      options.address,
       this.escrowAddress,
-      amount,
-      suggestedParams,
+      options.amount,
+      options.suggestedParams,
     );
 
     const tx2 = algosdk.makeApplicationNoOpTxnFromObject({
-      from: address,
-      suggestedParams: spFee(suggestedParams, REM_LIQ_FEE),
+      from: options.address,
+      suggestedParams: spFee(options.suggestedParams, REM_LIQ_FEE),
       appIndex: this.appId,
       appArgs: [
         REMOVE_LIQUIDITY_SIG,
@@ -326,8 +332,8 @@ export class FolksLendingPoolAdapter {
     });
 
     const tx3 = algosdk.makeApplicationNoOpTxnFromObject({
-      from: address,
-      suggestedParams: spFee(suggestedParams, POST_REM_LIQ_FEE),
+      from: options.address,
+      suggestedParams: spFee(options.suggestedParams, POST_REM_LIQ_FEE),
       appIndex: this.appId,
       appArgs: [
         POST_REMOVE_LIQUIDITY_SIG,
@@ -360,33 +366,27 @@ export class FolksLendingPoolAdapter {
     return [tx1, tx2, tx3];
   }
 
-  prepareSwap(
-    asset: Asset,
-    amount: number,
-    slippagePct: number,
-    swapForExact = false,
-  ): Swap {
-    const fAsset = this.originalAssetToFAsset(asset);
+  prepareSwap(options: SwapOptions): Swap {
+    const fAsset = this.originalAssetToFAsset(options.asset);
 
     let depositedLendingPool = this.secondaryLendingPool;
     let receivedLendingPool = this.primaryLendingPool;
-    if (asset.index === this.primaryLendingPool.originalAsset.index) {
+    if (options.asset.index === this.primaryLendingPool.originalAsset.index) {
       depositedLendingPool = this.primaryLendingPool;
       receivedLendingPool = this.secondaryLendingPool;
     }
 
-    const fAmount = depositedLendingPool.convertDeposit(amount);
+    const fAmount = depositedLendingPool.convertDeposit(options.amount);
 
     const swap = this.pactPool.prepareSwap({
+      ...options,
       asset: fAsset,
       amount: fAmount,
-      slippagePct,
-      swapForExact,
     });
     swap.assetDeposited = this.fAssetToOriginalAsset(swap.assetDeposited);
     swap.assetReceived = this.fAssetToOriginalAsset(swap.assetReceived);
 
-    swap.effect.amountDeposited = amount;
+    swap.effect.amountDeposited = options.amount;
     swap.effect.amountReceived = receivedLendingPool.convertWithdraw(
       swap.effect.amountReceived,
     );
@@ -394,20 +394,17 @@ export class FolksLendingPoolAdapter {
     return swap;
   }
 
-  async prepareSwapTxGroup(
-    swap: Swap,
-    address: string,
-  ): Promise<TransactionGroup> {
+  async prepareSwapTxGroup(options: SwapTxOptions): Promise<TransactionGroup> {
     const suggestedParams = await this.algod.getTransactionParams().do();
-    const txs = this.buildSwapTxs(swap, address, suggestedParams);
+    const txs = this.buildSwapTxs({ ...options, suggestedParams });
     return new TransactionGroup(txs);
   }
 
-  buildSwapTxs(
-    swap: Swap,
-    address: string,
-    suggestedParams: algosdk.SuggestedParams,
-  ): algosdk.Transaction[] {
+  buildSwapTxs({
+    address,
+    swap,
+    suggestedParams,
+  }: SwapTxOptions & SuggestedParamsOption): algosdk.Transaction[] {
     const tx1 = swap.assetDeposited.buildTransferTx(
       address,
       this.escrowAddress,
@@ -452,23 +449,18 @@ export class FolksLendingPoolAdapter {
   }
 
   async prepareOptInToAssetTxGroup(
-    address: string,
-    assetIds: number[],
+    options: OptInAssetToAdapterTxOptions,
   ): Promise<TransactionGroup> {
     const suggestedParams = await this.algod.getTransactionParams().do();
-    const txs = this.buildOptInToAssetTxGroup(
-      address,
-      assetIds,
-      suggestedParams,
-    );
+    const txs = this.buildOptInToAssetTxGroup({ ...options, suggestedParams });
     return new TransactionGroup(txs);
   }
 
-  buildOptInToAssetTxGroup(
-    address: string,
-    assetIds: number[],
-    suggestedParams: algosdk.SuggestedParams,
-  ) {
+  buildOptInToAssetTxGroup({
+    assetIds,
+    address,
+    suggestedParams,
+  }: OptInAssetToAdapterTxOptions & SuggestedParamsOption) {
     if (assetIds.length === 0 || assetIds.length > 8) {
       throw new PactSdkError("Length of assetIds must be between 1 and 8.");
     }
