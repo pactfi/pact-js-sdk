@@ -9,7 +9,6 @@ import {
   RemoveLiquidityOptions,
   SuggestedParamsOption,
   SwapOptions,
-  SwapTxOptions,
 } from "./pool";
 import { Swap } from "./swap";
 import { TransactionGroup } from "./transactionGroup";
@@ -55,6 +54,32 @@ export type OptInAssetToAdapterTxOptions = {
   assetIds: number[];
 };
 
+export type LendingSwap = {
+  fSwap: Swap;
+
+  /**
+   * The asset that will be swapped (deposited in the contract).
+   */
+  assetDeposited: Asset;
+
+  /**
+   * The asset that will be received.
+   */
+  assetReceived: Asset;
+
+  amountDeposited: number;
+  amountReceived: number;
+
+  minimumAmountReceived: number;
+
+  txFee: number;
+};
+
+export type LendingSwapTxOptions = {
+  swap: LendingSwap;
+  address: string;
+};
+
 export class FolksLendingPool {
   constructor(
     public algod: algosdk.Algodv2,
@@ -83,9 +108,13 @@ export class FolksLendingPool {
     return Math.floor((amount * ONE_14_DP) / rate);
   }
 
-  convertWithdraw(amount: number): number {
+  convertWithdraw(amount: number, options: { ceil?: boolean } = {}): number {
     const rate = this.calcDepositInterestRate(new Date());
-    return Math.floor((amount * rate) / ONE_14_DP);
+    const converted = (amount * rate) / ONE_14_DP;
+    if (options.ceil) {
+      return Math.ceil(converted);
+    }
+    return Math.floor(converted);
   }
 }
 
@@ -366,7 +395,7 @@ export class FolksLendingPoolAdapter {
     return [tx1, tx2, tx3];
   }
 
-  prepareSwap(options: SwapOptions): Swap {
+  prepareSwap(options: SwapOptions): LendingSwap {
     const fAsset = this.originalAssetToFAsset(options.asset);
 
     let depositedLendingPool = this.secondaryLendingPool;
@@ -376,25 +405,57 @@ export class FolksLendingPoolAdapter {
       receivedLendingPool = this.secondaryLendingPool;
     }
 
-    const fAmount = depositedLendingPool.convertDeposit(options.amount);
+    let fAmount: number;
+    if (options.swapForExact) {
+      fAmount = receivedLendingPool.convertDeposit(options.amount);
+    } else {
+      fAmount = depositedLendingPool.convertDeposit(options.amount);
+    }
 
-    const swap = this.pactPool.prepareSwap({
+    const fSwap = this.pactPool.prepareSwap({
       ...options,
       asset: fAsset,
       amount: fAmount,
     });
-    swap.assetDeposited = this.fAssetToOriginalAsset(swap.assetDeposited);
-    swap.assetReceived = this.fAssetToOriginalAsset(swap.assetReceived);
 
-    swap.effect.amountDeposited = options.amount;
-    swap.effect.amountReceived = receivedLendingPool.convertWithdraw(
-      swap.effect.amountReceived,
+    const assetDeposited = this.fAssetToOriginalAsset(fSwap.assetDeposited);
+    const assetReceived = this.fAssetToOriginalAsset(fSwap.assetReceived);
+
+    let amountDeposited: number;
+    let amountReceived: number;
+    if (options.swapForExact) {
+      amountDeposited = depositedLendingPool.convertWithdraw(
+        fSwap.effect.amountDeposited,
+        { ceil: true },
+      );
+      amountReceived = options.amount;
+    } else {
+      amountDeposited = options.amount;
+      amountReceived = receivedLendingPool.convertWithdraw(
+        fSwap.effect.amountReceived,
+      );
+    }
+
+    const minimumAmountReceived = receivedLendingPool.convertWithdraw(
+      fSwap.effect.minimumAmountReceived,
     );
 
-    return swap;
+    const txFee = SWAP_FEE + 1000; // + deposit(1000)
+
+    return {
+      fSwap,
+      assetDeposited,
+      assetReceived,
+      amountDeposited,
+      amountReceived,
+      minimumAmountReceived,
+      txFee,
+    };
   }
 
-  async prepareSwapTxGroup(options: SwapTxOptions): Promise<TransactionGroup> {
+  async prepareSwapTxGroup(
+    options: LendingSwapTxOptions,
+  ): Promise<TransactionGroup> {
     const suggestedParams = await this.algod.getTransactionParams().do();
     const txs = this.buildSwapTxs({ ...options, suggestedParams });
     return new TransactionGroup(txs);
@@ -404,11 +465,11 @@ export class FolksLendingPoolAdapter {
     address,
     swap,
     suggestedParams,
-  }: SwapTxOptions & SuggestedParamsOption): algosdk.Transaction[] {
+  }: LendingSwapTxOptions & SuggestedParamsOption): algosdk.Transaction[] {
     const tx1 = swap.assetDeposited.buildTransferTx(
       address,
       this.escrowAddress,
-      swap.amount,
+      swap.amountDeposited,
       suggestedParams,
     );
 
@@ -429,7 +490,7 @@ export class FolksLendingPoolAdapter {
         ABI_BYTE.encode(3),
         ABI_BYTE.encode(4),
         // others
-        new algosdk.ABIUintType(64).encode(swap.effect.minimumAmountReceived),
+        new algosdk.ABIUintType(64).encode(swap.minimumAmountReceived),
       ],
       foreignAssets: [
         this.primaryLendingPool.originalAsset.index,
