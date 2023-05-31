@@ -530,8 +530,14 @@ describe("constant product swap", () => {
     const account = await newAccount();
     const pact = new PactClient(algod);
 
-    const coinAIndex = await createAsset(account, "COIN_A", 3);
-    const coinBIndex = await createAsset(account, "COIN_B", 2);
+    const coinAIndex = await createAsset(account, {
+      name: "COIN_A",
+      decimals: 3,
+    });
+    const coinBIndex = await createAsset(account, {
+      name: "COIN_B",
+      decimals: 2,
+    });
 
     const appId = await deployConstantProductContract(
       account,
@@ -567,8 +573,14 @@ describe("nft constant product swap", () => {
     const account = await newAccount();
     const pact = new PactClient(algod);
 
-    const coinAIndex = await createAsset(account, "COIN_A", 3);
-    const coinBIndex = await createAsset(account, "COIN_B", 2);
+    const coinAIndex = await createAsset(account, {
+      name: "COIN_A",
+      decimals: 3,
+    });
+    const coinBIndex = await createAsset(account, {
+      name: "COIN_B",
+      decimals: 2,
+    });
 
     const appId = await deployNftConstantProductContract(
       account,
@@ -706,8 +718,14 @@ describe("stable swap", () => {
     const account = await newAccount();
     const pact = new PactClient(algod);
 
-    const coinAIndex = await createAsset(account, "COIN_A", 2);
-    const coinBIndex = await createAsset(account, "COIN_B", 2);
+    const coinAIndex = await createAsset(account, {
+      name: "COIN_A",
+      decimals: 2,
+    });
+    const coinBIndex = await createAsset(account, {
+      name: "COIN_B",
+      decimals: 2,
+    });
 
     const appId = await deployStableswapContract(
       account,

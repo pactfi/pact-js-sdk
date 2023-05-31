@@ -83,7 +83,11 @@ describe("factory", () => {
 
     const algo = await pact.fetchAsset(0);
     const coin = await pact.fetchAsset(
-      await createAsset(admin, "COIN", 0, 1000),
+      await createAsset(admin, {
+        name: "COIN",
+        decimals: 0,
+        totalIssuance: 1000,
+      }),
     );
 
     const factory = await pact.getNftConstantProductPoolFactory();

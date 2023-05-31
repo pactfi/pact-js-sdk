@@ -81,6 +81,9 @@ export type LendingSwapTxOptions = {
 };
 
 export class FolksLendingPool {
+  escrowAddress: string;
+  lastTimestamp: number | null = null;
+
   constructor(
     public algod: algosdk.Algodv2,
     public appId: number,
@@ -90,31 +93,39 @@ export class FolksLendingPool {
     public updatedAt: Date,
     public originalAsset: Asset,
     public fAsset: Asset,
-  ) {}
+  ) {
+    this.escrowAddress = algosdk.getApplicationAddress(this.appId);
+  }
 
-  calcDepositInterestRate(timestamp: Date): number {
+  calcDepositInterestRate(timestamp: number): number {
     const dt = Math.floor(
-      (timestamp.getTime() - this.updatedAt.getTime()) / 1000,
+      timestamp - Math.floor(this.updatedAt.getTime() / 1000),
     );
     return Math.floor(
       (this.depositInterestIndex *
-        (ONE_16_DP + (this.depositInterestRate * dt) / SECONDS_IN_YEAR)) /
+        Math.floor(
+          ONE_16_DP + (this.depositInterestRate * dt) / SECONDS_IN_YEAR,
+        )) /
         ONE_16_DP,
     );
   }
 
   convertDeposit(amount: number): number {
-    const rate = this.calcDepositInterestRate(new Date());
+    const rate = this.calcDepositInterestRate(this.getLastTimestamp());
     return Math.floor((amount * ONE_14_DP) / rate);
   }
 
   convertWithdraw(amount: number, options: { ceil?: boolean } = {}): number {
-    const rate = this.calcDepositInterestRate(new Date());
+    const rate = this.calcDepositInterestRate(this.getLastTimestamp());
     const converted = (amount * rate) / ONE_14_DP;
     if (options.ceil) {
       return Math.ceil(converted);
     }
     return Math.floor(converted);
+  }
+
+  getLastTimestamp(): number {
+    return this.lastTimestamp ?? Math.floor(new Date().getTime() / 1000);
   }
 }
 
@@ -531,7 +542,7 @@ export class FolksLendingPoolAdapter {
     const tx1 = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
       from: address,
       to: this.escrowAddress,
-      amount: assetIds.length * 100_000,
+      amount: assetIds.length * 100_000 + 100_000, // + min balance
       suggestedParams,
     });
 

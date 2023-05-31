@@ -73,7 +73,7 @@ export class FarmingTestBed {
   }
 
   async makeAsset(name: string) {
-    const assetIndex = await createAsset(this.adminAccount, (name = name));
+    const assetIndex = await createAsset(this.adminAccount, { name });
     const asset = await this.pact.fetchAsset(assetIndex);
     const optinTx = asset.buildOptInTx(
       this.userAccount.addr,
@@ -126,10 +126,10 @@ export async function makeFreshFarmingTestbed() {
   const algo = getAlgo(algod);
 
   const stakedAsset = await pact.fetchAsset(
-    await createAsset(adminAccount, "ASA_STK"),
+    await createAsset(adminAccount, { name: "ASA_STK" }),
   );
   const rewardAsset = await pact.fetchAsset(
-    await createAsset(adminAccount, "ASA_REW"),
+    await createAsset(adminAccount, { name: "ASA_REW" }),
   );
 
   const suggestedParams = await algod.getTransactionParams().do();

@@ -1,0 +1,611 @@
+#pragma version 8
+
+
+
+// deposit(txn,account,asset,asset,application)uint64
+
+// withdraw(axfer,uint64,account,asset,asset,application)uint64
+
+
+// if Txn.ApplicationID == 0:
+  txn ApplicationID
+  pushint 0
+  ==
+  bz l0_end
+  // then:
+    // exit(1)
+    pushint 1
+    return
+  l0_end: // end
+
+// switch Txn.OnCompletion:
+txn OnCompletion
+pushint 0 // NoOp
+==
+bnz main
+err // unexpected value
+
+// block main
+main:
+  // switch Txn.ApplicationArgs[0]:
+  txna ApplicationArgs 0
+  pushbytes "init"
+  ==
+  bnz main__init
+  txna ApplicationArgs 0
+  pushbytes "\xb9\xd5B\xfb" // DEPOSIT_SIG
+  ==
+  bnz main__deposit
+  txna ApplicationArgs 0
+  pushbytes "\xea\xbe\x82\x9d" // WITHDRAW_SIG
+  ==
+  bnz main__withdraw
+  err // unexpected value
+
+  // block init
+  main__init:
+    // Not present in original contract. Added for easier testing.
+    // init()
+    callsub __func__init
+    // exit(1)
+    pushint 1
+    return
+
+  // block deposit
+  main__deposit:
+    // deposit()
+    callsub __func__deposit
+    // exit(1)
+    pushint 1
+    return
+
+  // block withdraw
+  main__withdraw:
+    // withdraw()
+    callsub __func__withdraw
+    // exit(1)
+    pushint 1
+    return
+
+// func init():
+__func__init:
+// Args: [
+//    1: manager_app: int
+//    2: interest_rate: int
+//    3: interest_index: int
+//    4: updated_at: int
+// ]
+// Assets: [
+//    0: original_asset
+// ]
+
+// app_global_put("pm", Txn.ApplicationArgs[1])
+pushbytes "pm"
+txna ApplicationArgs 1
+app_global_put
+
+// int original_asset [slot 1]
+// if Txn.NumAssets == 0:
+  txn NumAssets
+  pushint 0
+  ==
+  bz l1_else
+  // then:
+    // Algo
+    // original_asset = 0
+    pushint 0
+    store 1 // original_asset
+  b l1_end
+  l1_else:
+  // else:
+    // original_asset = Txn.Assets[0]
+    txna Assets 0
+    store 1 // original_asset
+    // opt_in_asset(original_asset)
+    load 1 // original_asset
+    callsub __func__opt_in_asset
+  l1_end: // end
+
+// Assets assets = bzero(16) [slot 2]
+pushint 16
+bzero
+store 2 // assets
+// assets.original_asset = original_asset [slot 2]
+load 2 // assets
+load 1 // original_asset
+itob
+replace 0 // assets.original_asset
+store 2 // assets
+// assets.f_asset = create_f_asset(original_asset) [slot 2]
+load 2 // assets
+load 1 // original_asset
+callsub __func__create_f_asset
+itob
+replace 8 // assets.f_asset
+store 2 // assets
+// app_global_put("a", assets)
+pushbytes "a"
+load 2 // assets
+app_global_put
+
+// InterestInfo interest_info = bzero(56) [slot 3]
+pushint 56
+bzero
+store 3 // interest_info
+// interest_info.interest_rate = btoi(Txn.ApplicationArgs[2]) [slot 3]
+load 3 // interest_info
+txna ApplicationArgs 2
+btoi
+itob
+replace 32 // interest_info.interest_rate
+store 3 // interest_info
+// interest_info.interest_index = btoi(Txn.ApplicationArgs[3]) [slot 3]
+load 3 // interest_info
+txna ApplicationArgs 3
+btoi
+itob
+replace 40 // interest_info.interest_index
+store 3 // interest_info
+// interest_info.updated_at = btoi(Txn.ApplicationArgs[4]) [slot 3]
+load 3 // interest_info
+txna ApplicationArgs 4
+btoi
+itob
+replace 48 // interest_info.updated_at
+store 3 // interest_info
+// app_global_put("i", interest_info)
+pushbytes "i"
+load 3 // interest_info
+app_global_put
+
+
+// return
+retsub
+
+// func create_f_asset(asset: int) int:
+__func__create_f_asset:
+store 4 // asset
+// bytes unit_name [slot 5]
+// bytes name [slot 6]
+// int decimals [slot 7]
+// int total [slot 8]
+
+// if asset == 0:
+  load 4 // asset
+  pushint 0
+  ==
+  bz l2_else
+  // then:
+    // unit_name = 'fALGO'
+    pushbytes "fALGO"
+    store 5 // unit_name
+    // name = 'Folks Algo'
+    pushbytes "Folks Algo"
+    store 6 // name
+    // total = 10000000000
+    pushint 10000000000
+    store 8 // total
+    // decimals = 6
+    pushint 6
+    store 7 // decimals
+  b l2_end
+  l2_else:
+  // else:
+    // int exists [slot 9]
+    // exists, unit_name = asset_params_get(AssetUnitName, asset)
+    load 4 // asset
+    asset_params_get AssetUnitName
+    store 9 // exists
+    store 5 // unit_name
+    // exists, name = asset_params_get(AssetName, asset)
+    load 4 // asset
+    asset_params_get AssetName
+    store 9 // exists
+    store 6 // name
+    // exists, decimals = asset_params_get(AssetDecimals, asset)
+    load 4 // asset
+    asset_params_get AssetDecimals
+    store 9 // exists
+    store 7 // decimals
+    // exists, total = asset_params_get(AssetTotal, asset)
+    load 4 // asset
+    asset_params_get AssetTotal
+    store 9 // exists
+    store 8 // total
+
+    // unit_name = concat("f", unit_name)
+    pushbytes "f"
+    load 5 // unit_name
+    concat
+    store 5 // unit_name
+    // name = concat("Folks ", name)
+    pushbytes "Folks "
+    load 6 // name
+    concat
+    store 6 // name
+  l2_end: // end
+
+// inner_txn:
+itxn_begin
+  // TypeEnum: Acfg
+  pushint 3 // Acfg
+  itxn_field TypeEnum
+  // Sender: Global.CurrentApplicationAddress
+  global CurrentApplicationAddress
+  itxn_field Sender
+  // ConfigAssetUnitName: unit_name
+  load 5 // unit_name
+  itxn_field ConfigAssetUnitName
+  // ConfigAssetName: name
+  load 6 // name
+  itxn_field ConfigAssetName
+  // ConfigAssetTotal: total
+  load 8 // total
+  itxn_field ConfigAssetTotal
+  // ConfigAssetDecimals: decimals
+  load 7 // decimals
+  itxn_field ConfigAssetDecimals
+itxn_submit
+// end inner_txn
+
+// return Itxn.CreatedAssetID
+itxn CreatedAssetID
+retsub
+
+// func opt_in_asset(asset: int):
+__func__opt_in_asset:
+store 10 // asset
+// inner_txn:
+itxn_begin
+  // TypeEnum: Axfer
+  pushint 4 // Axfer
+  itxn_field TypeEnum
+  // Sender: Global.CurrentApplicationAddress
+  global CurrentApplicationAddress
+  itxn_field Sender
+  // AssetReceiver: Global.CurrentApplicationAddress
+  global CurrentApplicationAddress
+  itxn_field AssetReceiver
+  // XferAsset: asset
+  load 10 // asset
+  itxn_field XferAsset
+  // AssetAmount: 0
+  pushint 0
+  itxn_field AssetAmount
+itxn_submit
+// end inner_txn
+// return
+retsub
+
+// func deposit():
+__func__deposit:
+// int deposited [slot 11]
+// Assets assets = app_global_get("a") [slot 12]
+pushbytes "a"
+app_global_get
+store 12 // assets
+// if assets.original_asset == 0:
+  load 12 // assets
+  pushint 0
+  extract_uint64 // original_asset
+  pushint 0
+  ==
+  bz l3_else
+  // then:
+    // assert(Gtxn[-1].TypeEnum == Pay)
+    txn GroupIndex
+    pushint 1
+    -
+    gtxns TypeEnum
+    pushint 1 // Pay
+    ==
+    assert
+    // assert(Gtxn[-1].Receiver == Global.CurrentApplicationAddress)
+    txn GroupIndex
+    pushint 1
+    -
+    gtxns Receiver
+    global CurrentApplicationAddress
+    ==
+    assert
+    // deposited = Gtxn[-1].Amount
+    txn GroupIndex
+    pushint 1
+    -
+    gtxns Amount
+    store 11 // deposited
+  b l3_end
+  l3_else:
+  // else:
+    // assert(Gtxn[-1].TypeEnum == Axfer)
+    txn GroupIndex
+    pushint 1
+    -
+    gtxns TypeEnum
+    pushint 4 // Axfer
+    ==
+    assert
+    // assert(Gtxn[-1].XferAsset == assets.original_asset)
+    txn GroupIndex
+    pushint 1
+    -
+    gtxns XferAsset
+    load 12 // assets
+    pushint 0
+    extract_uint64 // original_asset
+    ==
+    assert
+    // assert(Gtxn[-1].AssetReceiver == Global.CurrentApplicationAddress)
+    txn GroupIndex
+    pushint 1
+    -
+    gtxns AssetReceiver
+    global CurrentApplicationAddress
+    ==
+    assert
+    // deposited = Gtxn[-1].AssetAmount
+    txn GroupIndex
+    pushint 1
+    -
+    gtxns AssetAmount
+    store 11 // deposited
+  l3_end: // end
+
+// inner_txn:
+itxn_begin
+  // TypeEnum: Axfer
+  pushint 4 // Axfer
+  itxn_field TypeEnum
+  // Sender: Global.CurrentApplicationAddress
+  global CurrentApplicationAddress
+  itxn_field Sender
+  // AssetReceiver: Txn.Sender
+  txn Sender
+  itxn_field AssetReceiver
+  // XferAsset: assets.f_asset
+  load 12 // assets
+  pushint 8
+  extract_uint64 // f_asset
+  itxn_field XferAsset
+  // AssetAmount: convert_deposit(deposited)
+  load 11 // deposited
+  callsub __func__convert_deposit
+  itxn_field AssetAmount
+itxn_submit
+// end inner_txn
+
+// make_empty_manager_call()
+callsub __func__make_empty_manager_call
+
+// return
+retsub
+
+// func withdraw():
+__func__withdraw:
+// Assets assets = app_global_get("a") [slot 13]
+pushbytes "a"
+app_global_get
+store 13 // assets
+// assert(Gtxn[-1].TypeEnum == Axfer)
+txn GroupIndex
+pushint 1
+-
+gtxns TypeEnum
+pushint 4 // Axfer
+==
+assert
+// assert(Gtxn[-1].XferAsset == assets.f_asset)
+txn GroupIndex
+pushint 1
+-
+gtxns XferAsset
+load 13 // assets
+pushint 8
+extract_uint64 // f_asset
+==
+assert
+// assert(Gtxn[-1].AssetReceiver == Global.CurrentApplicationAddress)
+txn GroupIndex
+pushint 1
+-
+gtxns AssetReceiver
+global CurrentApplicationAddress
+==
+assert
+
+// int withdrawed = Gtxn[-1].AssetAmount [slot 14]
+txn GroupIndex
+pushint 1
+-
+gtxns AssetAmount
+store 14 // withdrawed
+
+// if assets.original_asset == 0:
+  load 13 // assets
+  pushint 0
+  extract_uint64 // original_asset
+  pushint 0
+  ==
+  bz l4_else
+  // then:
+    // inner_txn:
+    itxn_begin
+      // TypeEnum: Pay
+      pushint 1 // Pay
+      itxn_field TypeEnum
+      // Sender: Global.CurrentApplicationAddress
+      global CurrentApplicationAddress
+      itxn_field Sender
+      // Receiver: Txn.Sender
+      txn Sender
+      itxn_field Receiver
+      // Amount: convert_withdraw(withdrawed)
+      load 14 // withdrawed
+      callsub __func__convert_withdraw
+      itxn_field Amount
+    itxn_submit
+    // end inner_txn
+  b l4_end
+  l4_else:
+  // else:
+    // inner_txn:
+    itxn_begin
+      // TypeEnum: Axfer
+      pushint 4 // Axfer
+      itxn_field TypeEnum
+      // Sender: Global.CurrentApplicationAddress
+      global CurrentApplicationAddress
+      itxn_field Sender
+      // AssetReceiver: Txn.Sender
+      txn Sender
+      itxn_field AssetReceiver
+      // XferAsset: assets.original_asset
+      load 13 // assets
+      pushint 0
+      extract_uint64 // original_asset
+      itxn_field XferAsset
+      // AssetAmount: convert_withdraw(withdrawed)
+      load 14 // withdrawed
+      callsub __func__convert_withdraw
+      itxn_field AssetAmount
+    itxn_submit
+    // end inner_txn
+  l4_end: // end
+
+// make_empty_manager_call()
+callsub __func__make_empty_manager_call
+
+// In the real code it's the manager who sends the money back to the user, so here we add an empty transaction to simulate the transaction fee increase.
+// inner_txn:
+itxn_begin
+  // TypeEnum: Axfer
+  pushint 4 // Axfer
+  itxn_field TypeEnum
+  // Sender: Global.CurrentApplicationAddress
+  global CurrentApplicationAddress
+  itxn_field Sender
+  // AssetReceiver: Txn.Sender
+  txn Sender
+  itxn_field AssetReceiver
+  // XferAsset: assets.f_asset
+  load 13 // assets
+  pushint 8
+  extract_uint64 // f_asset
+  itxn_field XferAsset
+  // AssetAmount: 0
+  pushint 0
+  itxn_field AssetAmount
+itxn_submit
+// end inner_txn
+
+// return
+retsub
+
+// func make_empty_manager_call():
+__func__make_empty_manager_call:
+// inner_txn:
+itxn_begin
+  // TypeEnum: Appl
+  pushint 6 // Appl
+  itxn_field TypeEnum
+  // OnCompletion: NoOp
+  pushint 0 // NoOp
+  itxn_field OnCompletion
+  // Sender: Global.CurrentApplicationAddress
+  global CurrentApplicationAddress
+  itxn_field Sender
+  // ApplicationID: btoi(app_global_get('pm'))
+  pushbytes "pm"
+  app_global_get
+  btoi
+  itxn_field ApplicationID
+itxn_submit
+// end inner_txn
+
+// return
+retsub
+
+// func convert_deposit(amount: int) int:
+__func__convert_deposit:
+store 15 // amount
+// int rate = calc_deposit_interest_rate() [slot 16]
+callsub __func__calc_deposit_interest_rate
+store 16 // rate
+// return btoi((itob(amount) b* itob(ONE_14_DP)) b/ itob(rate))
+load 15 // amount
+itob
+pushint 100000000000000 // ONE_14_DP
+itob
+b*
+load 16 // rate
+itob
+b/
+btoi
+retsub
+
+// func convert_withdraw(amount: int) int:
+__func__convert_withdraw:
+store 17 // amount
+// int rate = calc_deposit_interest_rate() [slot 18]
+callsub __func__calc_deposit_interest_rate
+store 18 // rate
+// return btoi((itob(amount) b* itob(rate)) b/ itob(ONE_14_DP))
+load 17 // amount
+itob
+load 18 // rate
+itob
+b*
+pushint 100000000000000 // ONE_14_DP
+itob
+b/
+btoi
+retsub
+
+// func calc_deposit_interest_rate() int:
+__func__calc_deposit_interest_rate:
+// InterestInfo interest_info = app_global_get("i") [slot 19]
+pushbytes "i"
+app_global_get
+store 19 // interest_info
+// Using Round instead of LatestTimestamp for easier testing.
+// bytes dt = itob(Global.Round - interest_info.updated_at) [slot 20]
+global Round
+load 19 // interest_info
+pushint 48
+extract_uint64 // updated_at
+-
+itob
+store 20 // dt
+
+// bytes xx = itob(ONE_16_DP) b+ ((itob(interest_info.interest_rate) b* dt) b/ itob(SECONDS_IN_YEAR)) [slot 21]
+pushint 10000000000000000 // ONE_16_DP
+itob
+load 19 // interest_info
+pushint 32
+extract_uint64 // interest_rate
+itob
+load 20 // dt
+b*
+pushint 31536000 // SECONDS_IN_YEAR
+itob
+b/
+b+
+store 21 // xx
+
+// bytes yy = (itob(interest_info.interest_index) b* xx) b/ itob(ONE_16_DP) [slot 22]
+load 19 // interest_info
+pushint 40
+extract_uint64 // interest_index
+itob
+load 21 // xx
+b*
+pushint 10000000000000000 // ONE_16_DP
+itob
+b/
+store 22 // yy
+
+// return btoi(yy)
+load 22 // yy
+btoi
+retsub
+
