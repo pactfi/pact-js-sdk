@@ -54,22 +54,31 @@ export type OptInAssetToAdapterTxOptions = {
   assetIds: number[];
 };
 
+/**
+ * A wrapper around Swap object that adds some lending specific information.
+ */
 export type LendingSwap = {
+  /**
+   * Information about the actual swap on the Pact pool.
+   */
   fSwap: Swap;
 
-  /**
-   * The asset that will be swapped (deposited in the contract).
-   */
   assetDeposited: Asset;
-
-  /**
-   * The asset that will be received.
-   */
   assetReceived: Asset;
 
+  /**
+   * Amount of original asset deposited by the user.
+   */
   amountDeposited: number;
+
+  /**
+   * Amount of original asset received by the user.
+   */
   amountReceived: number;
 
+  /**
+   * Minimal amount of original asset received by the user after the slippage.
+   */
   minimumAmountReceived: number;
 
   txFee: number;
@@ -82,6 +91,8 @@ export type LendingSwapTxOptions = {
 
 export class FolksLendingPool {
   escrowAddress: string;
+
+  /** The conversion calculations are dependant of precise timestamps. The Folks contract uses the last block timestamp for this value. The SDK, by default, uses current system time. This field allows to override the default behavior. This is needed in unit tests and normal users should leave this field as null. */
   lastTimestamp: number | null = null;
 
   constructor(
@@ -97,7 +108,7 @@ export class FolksLendingPool {
     this.escrowAddress = algosdk.getApplicationAddress(this.appId);
   }
 
-  calcDepositInterestRate(timestamp: number): number {
+  private calcDepositInterestRate(timestamp: number): number {
     const dt = Math.floor(
       timestamp - Math.floor(this.updatedAt.getTime() / 1000),
     );
@@ -110,11 +121,17 @@ export class FolksLendingPool {
     );
   }
 
+  /**
+   * Calculates the amount fAsset received when depositing original asset.
+   */
   convertDeposit(amount: number): number {
     const rate = this.calcDepositInterestRate(this.getLastTimestamp());
     return Math.floor((amount * ONE_14_DP) / rate);
   }
 
+  /**
+   * Calculates the amount original asset received when depositing fAsset.
+   */
   convertWithdraw(amount: number, options: { ceil?: boolean } = {}): number {
     const rate = this.calcDepositInterestRate(this.getLastTimestamp());
     const converted = (amount * rate) / ONE_14_DP;
@@ -129,6 +146,9 @@ export class FolksLendingPool {
   }
 }
 
+/**
+ * Fetches Folks lending pool application info from the algod, parses the global state and builds FolksLendingPool object.
+ */
 export async function fetchFolksLendingPool(
   algod: algosdk.Algodv2,
   appId: number,
@@ -169,7 +189,13 @@ export async function fetchFolksLendingPool(
   );
 }
 
+/**
+ * A wrapper around LiquidityAddition object that converts assets to fAssets before creating LiquidityAddition object.
+ */
 export class LendingLiquidityAddition {
+  /**
+   * Information about actual add liquidity operation on the Pact pool.
+   */
   public liquidityAddition: LiquidityAddition;
 
   constructor(
@@ -190,6 +216,41 @@ export class LendingLiquidityAddition {
   }
 }
 
+/**
+The representation of the Folks Finance lending adapter contract.
+
+This class allows for composing Pact swaps and adding/removing liquidity with Folks Finance lending pools, resulting in a higher APR for liquidity providers that accommodates both, the trading APR and the lending APR.
+
+The user is not interacting with Folks Finance pools or Pact pools directly. Instead, the user is calling a global adapter contract that makes inner transactions to the other applications.
+
+The Pact pool is between two fAssets e.g. fALGO and fUSDC but the user doesn't have to be opted into those fAssets. The user interacts only with ALGO and USDC. Converting between the original assets and fAssets is hidden in the adapter contract.
+
+To add liquidity:
+ - The user deposits ALGO and USDC in the adapter contract.
+ - The user calls “pre_add_liquidity” method on the adapter.
+ - The adapter converts ALGO to fALGO and USDC to fUSDC in corresponding Folks Finance pools.
+ - The user calls “add_liquidity” method on the adapter.
+ - The adapter deposits fALGO and fUSDC in Pact pool and receives liquidity tokens in return.
+ - The adapter transfers the liquidity tokens to the user.
+
+To remove liquidity:
+ - The user deposits liquidity tokens in the adapter contract.
+ - The user calls “remove_liquidity” method on the adapter.
+ - The adapter removes liquidity from the Pact pool and receives fALGO and fUSDC in return.
+ - The user calls “post_remove_liquidity” method on the adapter.
+ - The adapter converts fALGO to ALGO and fUSDC to USDC in corresponding Folks Finance pools.
+ - The adapter transfers ALGO and USDC tokens to the user.
+
+For swap:
+ - The user deposits one of the assets in the adapter e.g. USDC.
+ - The user calls “swap” method on the adapter.
+ - The adapter converts USDC to fUSDC in a corresponding Folks Finance pool.
+ - The adapter swaps fUSDC to fALGO in a Pact pool.
+ - The adapter converts fALGO to ALGO in a corresponding Folks Finance pool.
+ - The adapter transfers ALGO to the user.
+
+This class tries to mimic the interface of a [[Pool]] for making the above operations.
+ */
 export class FolksLendingPoolAdapter {
   public escrowAddress: string;
 

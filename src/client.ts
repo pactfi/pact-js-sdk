@@ -15,8 +15,19 @@ import { getGasStation, setGasStation } from "./gasStation";
 import { Pool, fetchPoolById, fetchPoolsByAssets } from "./pool";
 
 export type FolksLendingPoolAdapterOptions = {
+  /**
+   * The Pact pool between two fAssets tokens.
+   */
   pactPool: Pool;
+
+  /**
+   * The Folks Finance pool for the primary fAsset.
+   */
   primaryLendingPool: FolksLendingPool;
+
+  /**
+   * The Folks Finance pool for the secondary fAsset.
+   */
   secondaryLendingPool: FolksLendingPool;
 };
 
@@ -137,10 +148,26 @@ export class PactClient {
     return fetchPoolById(this.algod, appId);
   }
 
+  /**
+   * Fetches Folks Finance lending pool that can be used in [[FolksLendingPoolAdapter]] which allows higher APR than a normal pool.
+   * See [[FolksLendingPoolAdapter]] for details.
+   *
+   * @param appId The application id of the Folks Finance pool. You can find the ids here - https://docs.folks.finance/developer/contracts
+   *
+   * @returns The Folks Finance lending pool for the given application id.
+   */
   fetchFolksLendingPool(appId: number): Promise<FolksLendingPool> {
     return fetchFolksLendingPool(this.algod, appId);
   }
 
+  /**
+   * Creates the adapter object that allows composing Folks Finance lending pools with Pact pool, resulting in a higher APR.
+   * See [[FolksLendingPoolAdapter]] for details.
+   *
+   * @param options
+   *
+   * @returns The adapter object.
+   */
   getFolksLendingPoolAdapter(
     options: FolksLendingPoolAdapterOptions,
   ): FolksLendingPoolAdapter {
