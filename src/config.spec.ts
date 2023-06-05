@@ -29,7 +29,7 @@ describe("config", () => {
       gasStationId: 156575978,
       factoryConstantProductId: 166540424,
       factoryNftConstantProductId: 190269485,
-      folksLendingPoolAdapterId: 215104650,
+      folksLendingPoolAdapterId: 227360452,
     });
 
     pact = new PactClient(algod, { network: "dev" });
