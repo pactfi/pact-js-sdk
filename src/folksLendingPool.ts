@@ -108,7 +108,7 @@ export class FolksLendingPool {
     this.escrowAddress = algosdk.getApplicationAddress(this.appId);
   }
 
-  private calcDepositInterestRate(timestamp: number): number {
+  private calcDepositInterestIndex(timestamp: number): number {
     const dt = Math.floor(
       timestamp - Math.floor(this.updatedAt.getTime() / 1000),
     );
@@ -125,16 +125,20 @@ export class FolksLendingPool {
    * Calculates the amount fAsset received when depositing original asset.
    */
   convertDeposit(amount: number): number {
-    const rate = this.calcDepositInterestRate(this.getLastTimestamp());
-    return Math.floor((amount * ONE_14_DP) / rate);
+    const interestIndex = this.calcDepositInterestIndex(
+      this.getLastTimestamp(),
+    );
+    return Math.floor((amount * ONE_14_DP) / interestIndex);
   }
 
   /**
    * Calculates the amount original asset received when depositing fAsset.
    */
   convertWithdraw(amount: number, options: { ceil?: boolean } = {}): number {
-    const rate = this.calcDepositInterestRate(this.getLastTimestamp());
-    const converted = (amount * rate) / ONE_14_DP;
+    const interestIndex = this.calcDepositInterestIndex(
+      this.getLastTimestamp(),
+    );
+    const converted = (amount * interestIndex) / ONE_14_DP;
     if (options.ceil) {
       return Math.ceil(converted);
     }
