@@ -1148,10 +1148,10 @@ describe("Farming", () => {
     const pact = new PactClient(algod);
 
     const stakedAsset = await pact.fetchAsset(
-      await createAsset(adminAccount, "ASA_STK"),
+      await createAsset(adminAccount, { name: "ASA_STK" }),
     );
     const rewardAsset = await pact.fetchAsset(
-      await createAsset(adminAccount, "ASA_REW"),
+      await createAsset(adminAccount, { name: "ASA_REW" }),
     );
 
     // Deploy farm.

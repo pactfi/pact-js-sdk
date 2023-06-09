@@ -23,24 +23,37 @@ export async function signAndSend(
   return await algod.sendRawTransaction(signedTx).do();
 }
 
+export type AssetCreateOptions = {
+  name: string | undefined;
+  unitName: string | null;
+  decimals: number;
+  totalIssuance: number;
+};
+
+const DEFAULT_ASSET_CREATE_OPTIONS: AssetCreateOptions = {
+  name: "COIN",
+  unitName: null,
+  decimals: 6,
+  totalIssuance: 100_000_000,
+};
+
 export async function createAsset(
   account: algosdk.Account,
-  name: string | undefined = "COIN",
-  decimals = 6,
-  totalIssuance = 100_000_000,
+  options: Partial<AssetCreateOptions> = {},
 ): Promise<number> {
+  const allOptions = { ...DEFAULT_ASSET_CREATE_OPTIONS, ...options };
   const suggestedParams = await algod.getTransactionParams().do();
 
   const txn = algosdk.makeAssetCreateTxnWithSuggestedParamsFromObject({
     from: account.addr,
-    total: BigInt(totalIssuance),
-    decimals,
+    total: BigInt(allOptions.totalIssuance),
+    decimals: allOptions.decimals,
     manager: account.addr,
     reserve: account.addr,
     clawback: account.addr,
     freeze: account.addr,
-    assetName: name,
-    unitName: name,
+    assetName: allOptions.name,
+    unitName: allOptions.unitName ?? allOptions.name,
     defaultFrozen: false,
     suggestedParams,
   });

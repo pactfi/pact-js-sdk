@@ -181,8 +181,16 @@ describe("Generic pool", () => {
 
   it("should add big liquidity to an empty pool using split", async () => {
     const { pact, account } = testBed;
-    const coinAIndex = await createAsset(account, "coinA", 0, 2 ** 50 - 1);
-    const coinBIndex = await createAsset(account, "coinB", 0, 2 ** 50 - 1);
+    const coinAIndex = await createAsset(account, {
+      name: "coinA",
+      decimals: 0,
+      totalIssuance: 2 ** 50 - 1,
+    });
+    const coinBIndex = await createAsset(account, {
+      name: "coinB",
+      decimals: 0,
+      totalIssuance: 2 ** 50 - 1,
+    });
 
     const appId = await deployConstantProductContract(
       account,
@@ -427,7 +435,11 @@ describe("Constant product pool", () => {
     });
     const { account, algo, pact } = testBed;
 
-    const coinBIndex = await createAsset(account, "coinA", 19, 10 ** 19);
+    const coinBIndex = await createAsset(account, {
+      name: "coinA",
+      decimals: 19,
+      totalIssuance: 10 ** 19,
+    });
 
     const appId = await deployConstantProductContract(
       account,
@@ -545,8 +557,16 @@ describe("Stableswap pool", () => {
     const account = await newAccount();
     const pact = new PactClient(algod);
 
-    const coinAIndex = await createAsset(account, "COIN_A", 6, 10 ** 10);
-    const coinBIndex = await createAsset(account, "COIN_B", 6, 10 ** 10);
+    const coinAIndex = await createAsset(account, {
+      name: "COIN_A",
+      decimals: 6,
+      totalIssuance: 10 ** 10,
+    });
+    const coinBIndex = await createAsset(account, {
+      name: "COIN_B",
+      decimals: 6,
+      totalIssuance: 10 ** 10,
+    });
 
     const appId = await deployStableswapContract(
       account,

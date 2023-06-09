@@ -16,7 +16,10 @@ describe("Asset", () => {
   it("fetch ASA", async () => {
     const pact = new PactClient(algod);
     const account = await newAccount();
-    const assetIndex = await createAsset(account, "JAMNIK", 10);
+    const assetIndex = await createAsset(account, {
+      name: "JAMNIK",
+      decimals: 10,
+    });
     const asset = await pact.fetchAsset(assetIndex);
 
     expect(asset.decimals).toBe(10);
@@ -29,7 +32,10 @@ describe("Asset", () => {
   it("fetch ASA with no name", async () => {
     const pact = new PactClient(algod);
     const account = await newAccount();
-    const assetIndex = await createAsset(account, undefined, 10);
+    const assetIndex = await createAsset(account, {
+      name: undefined,
+      decimals: 10,
+    });
     const asset = await pact.fetchAsset(assetIndex);
 
     expect(asset.decimals).toBe(10);
@@ -51,7 +57,10 @@ describe("Asset", () => {
   it("opt in for an asset", async () => {
     const pact = new PactClient(algod);
     const creator = await newAccount();
-    const assetIndex = await createAsset(creator, "test", 10);
+    const assetIndex = await createAsset(creator, {
+      name: "test",
+      decimals: 10,
+    });
     const asset = await pact.fetchAsset(assetIndex);
 
     const user = await newAccount();

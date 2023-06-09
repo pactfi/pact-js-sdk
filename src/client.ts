@@ -6,8 +6,30 @@ import { Config, Network, getConfig } from "./config";
 import { PactSdkError } from "./exceptions";
 import { ConstantProductFactory, getPoolFactory } from "./factories";
 import { PactFarmingClient } from "./farming";
+import {
+  FolksLendingPool,
+  FolksLendingPoolAdapter,
+  fetchFolksLendingPool,
+} from "./folksLendingPool";
 import { getGasStation, setGasStation } from "./gasStation";
 import { Pool, fetchPoolById, fetchPoolsByAssets } from "./pool";
+
+export type FolksLendingPoolAdapterOptions = {
+  /**
+   * The Pact pool between two fAssets tokens.
+   */
+  pactPool: Pool;
+
+  /**
+   * The Folks Finance pool for the primary fAsset.
+   */
+  primaryLendingPool: FolksLendingPool;
+
+  /**
+   * The Folks Finance pool for the secondary fAsset.
+   */
+  secondaryLendingPool: FolksLendingPool;
+};
 
 /**
  * An entry point for interacting with the SDK.
@@ -124,6 +146,38 @@ export class PactClient {
    */
   fetchPoolById(appId: number): Promise<Pool> {
     return fetchPoolById(this.algod, appId);
+  }
+
+  /**
+   * Fetches Folks Finance lending pool that can be used in [[FolksLendingPoolAdapter]] which allows higher APR than a normal pool.
+   * See [[FolksLendingPoolAdapter]] for details.
+   *
+   * @param appId The application id of the Folks Finance pool. You can find the ids here - https://docs.folks.finance/developer/contracts
+   *
+   * @returns The Folks Finance lending pool for the given application id.
+   */
+  fetchFolksLendingPool(appId: number): Promise<FolksLendingPool> {
+    return fetchFolksLendingPool(this.algod, appId);
+  }
+
+  /**
+   * Creates the adapter object that allows composing Folks Finance lending pools with Pact pool, resulting in a higher APR.
+   * See [[FolksLendingPoolAdapter]] for details.
+   *
+   * @param options
+   *
+   * @returns The adapter object.
+   */
+  getFolksLendingPoolAdapter(
+    options: FolksLendingPoolAdapterOptions,
+  ): FolksLendingPoolAdapter {
+    return new FolksLendingPoolAdapter(
+      this.algod,
+      this.config.folksLendingPoolAdapterId,
+      options.pactPool,
+      options.primaryLendingPool,
+      options.secondaryLendingPool,
+    );
   }
 
   /**

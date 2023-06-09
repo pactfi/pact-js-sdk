@@ -101,7 +101,10 @@ describe("zap", () => {
       poolType: "CONSTANT_PRODUCT",
     });
     const pact = new PactClient(algod);
-    const coinXIndex = await createAsset(account, "COIN_X", 6);
+    const coinXIndex = await createAsset(account, {
+      name: "COIN_X",
+      decimals: 6,
+    });
     const coinX = await pact.fetchAsset(coinXIndex);
 
     expect(() =>
