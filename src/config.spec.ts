@@ -10,7 +10,7 @@ describe("config", () => {
       gasStationId: 1027956681,
       factoryConstantProductId: 1072843805,
       factoryNftConstantProductId: 1076423760,
-      folksLendingPoolAdapterId: 0,
+      folksLendingPoolAdapterId: 1123472996,
     });
     expect(getGasStation().appId).toBe(1027956681);
 
@@ -20,7 +20,7 @@ describe("config", () => {
       gasStationId: 1027956681,
       factoryConstantProductId: 1072843805,
       factoryNftConstantProductId: 1076423760,
-      folksLendingPoolAdapterId: 0,
+      folksLendingPoolAdapterId: 1123472996,
     });
 
     pact = new PactClient(algod, { network: "testnet" });
@@ -29,7 +29,7 @@ describe("config", () => {
       gasStationId: 156575978,
       factoryConstantProductId: 166540424,
       factoryNftConstantProductId: 190269485,
-      folksLendingPoolAdapterId: 227360452,
+      folksLendingPoolAdapterId: 228284187,
     });
 
     pact = new PactClient(algod, { network: "dev" });
@@ -47,7 +47,7 @@ describe("config", () => {
       gasStationId: 1027956681,
       factoryConstantProductId: 1072843805,
       factoryNftConstantProductId: 1076423760,
-      folksLendingPoolAdapterId: 0,
+      folksLendingPoolAdapterId: 1123472996,
     });
 
     pact = new PactClient(algod, {
