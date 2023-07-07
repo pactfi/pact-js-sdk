@@ -178,51 +178,6 @@ describe("Generic pool", () => {
       `Asset with index ${shitcoin.index} is not a pool asset.`,
     );
   });
-
-  it("should add big liquidity to an empty pool using split", async () => {
-    const { pact, account } = testBed;
-    const coinAIndex = await createAsset(account, {
-      name: "coinA",
-      decimals: 0,
-      totalIssuance: 2 ** 50 - 1,
-    });
-    const coinBIndex = await createAsset(account, {
-      name: "coinB",
-      decimals: 0,
-      totalIssuance: 2 ** 50 - 1,
-    });
-
-    const appId = await deployConstantProductContract(
-      account,
-      coinAIndex,
-      coinBIndex,
-    );
-    const pool = await pact.fetchPoolById(appId);
-
-    expect(pool.calculator.isEmpty).toBe(true);
-
-    const liqOptInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
-    await signAndSend(liqOptInTx, account);
-
-    // Adding initial liquidity has a limitation that the product of 2 assets must be lower than 2**64.
-    // Let's go beyond that limit and check what happens.
-    const [primaryAssetAmount, secondaryAssetAmount] = [2 ** 40, 2 ** 30];
-
-    const liquidityAddition = pool.prepareAddLiquidity({
-      primaryAssetAmount,
-      secondaryAssetAmount,
-    });
-    const txGroup = await liquidityAddition.prepareTxGroup(account.addr);
-
-    // liquidity is split into two chunks, so 6 txs instead of 3.
-    expect(txGroup.transactions.length).toBe(6);
-
-    await signAndSend(txGroup, account);
-
-    await pool.updateState();
-    expect(pool.state.totalPrimary).toBe(primaryAssetAmount);
-    expect(pool.state.totalSecondary).toBe(secondaryAssetAmount);
-  });
 });
 
 function test_parsing_state(
@@ -347,6 +302,7 @@ describe("Constant product pool", () => {
     const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount: 100_000,
       secondaryAssetAmount: 100_000,
+      slippagePct: 0,
     });
     const addLiqTxGroup = await liquidityAddition.prepareTxGroup(account.addr);
     expect(addLiqTxGroup.transactions.length).toBe(3);
@@ -467,9 +423,10 @@ describe("Constant product pool", () => {
     const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount: 100_000,
       secondaryAssetAmount: 10 ** 18,
+      slippagePct: 0,
     });
     const addLiqTxGroup = await liquidityAddition.prepareTxGroup(account.addr);
-    expect(addLiqTxGroup.transactions.length).toBe(6);
+    expect(addLiqTxGroup.transactions.length).toBe(3);
     await signAndSend(addLiqTxGroup, account);
     await pool.updateState();
     expect(pool.state.totalSecondary).toBe(10 ** 18);
@@ -512,6 +469,59 @@ describe("Constant product pool", () => {
     await signAndSend(removeLiqTxGroup, account);
     await pool.updateState();
     expect(pool.state.totalLiquidity).toBe(1000);
+  });
+
+  it("Pool e2e scenario triggering slippage error", async () => {
+    const { account, algo, pool } = await makeFreshPoolTestbed({
+      poolType: "CONSTANT_PRODUCT",
+    });
+
+    expect(pool.calculator.isEmpty).toBe(true);
+
+    // Opt in for liquidity asset.
+    const liqOptInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
+    await signAndSend(liqOptInTx, account);
+
+    // Add liquidity.
+    const liquidityAddition = pool.prepareAddLiquidity({
+      primaryAssetAmount: 100_000,
+      secondaryAssetAmount: 100_000,
+      slippagePct: 0,
+    });
+    const addLiqTxGroup = await liquidityAddition.prepareTxGroup(account.addr);
+    expect(addLiqTxGroup.transactions.length).toBe(3);
+    await signAndSend(addLiqTxGroup, account);
+    await pool.updateState();
+    const lastState = pool.state;
+
+    // Second add liquidity that should fail when executed after swap.
+    const secondLiquidityAddition = pool.prepareAddLiquidity({
+      primaryAssetAmount: 50_000,
+      secondaryAssetAmount: 50_000,
+      slippagePct: 0,
+    });
+
+    // Swap algo.
+    const algoSwap = pool.prepareSwap({
+      asset: algo,
+      amount: 20_000,
+      slippagePct: 2,
+    });
+    const algoSwapTxGroup = await algoSwap.prepareTxGroup(account.addr);
+    expect(algoSwapTxGroup.transactions.length).toBe(2);
+    await signAndSend(algoSwapTxGroup, account);
+    await pool.updateState();
+    expect(pool.state.totalPrimary).toBeGreaterThan(lastState.totalPrimary);
+    expect(pool.state.totalSecondary).toBeLessThan(lastState.totalSecondary);
+
+    // Execute add liquidity after changing ratio in pool.
+    const failingAddLiqTxGroup = await secondLiquidityAddition.prepareTxGroup(
+      account.addr,
+    );
+    expect(failingAddLiqTxGroup.transactions.length).toBe(3);
+    await expect(() =>
+      signAndSend(failingAddLiqTxGroup, account),
+    ).rejects.toThrow("would result negative");
   });
 });
 
@@ -592,6 +602,7 @@ describe("Stableswap pool", () => {
     const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount: 100_000_000,
       secondaryAssetAmount: 100_000_000,
+      slippagePct: 0,
     });
     const addLiqTxGroup = await liquidityAddition.prepareTxGroup(account.addr);
     expect(addLiqTxGroup.transactions.length).toBe(3);

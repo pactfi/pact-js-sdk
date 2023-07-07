@@ -57,6 +57,7 @@ describe("factory", () => {
     const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount: 1000,
       secondaryAssetAmount: 2000,
+      slippagePct: 0,
     });
     const txGroup = await pool.prepareAddLiquidityTxGroup({
       address: admin.addr,
@@ -131,6 +132,7 @@ describe("factory", () => {
     const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount: 10_000,
       secondaryAssetAmount: 500,
+      slippagePct: 0,
     });
     const txGroup = await pool.prepareAddLiquidityTxGroup({
       address: admin.addr,

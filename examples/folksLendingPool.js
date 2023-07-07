@@ -70,6 +70,7 @@ const FOLKS_POOL_B = 147170678; // USDC
   const liquidityAddition = lendingPoolAdapter.prepareAddLiquidity({
     primaryAssetAmount: 100_000,
     secondaryAssetAmount: 100_000,
+    slippagePct: 0.5,
   });
   txGroup = await lendingPoolAdapter.prepareAddLiquidityTxGroup({
     address: account.addr,

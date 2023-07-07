@@ -6,7 +6,6 @@
  * @package
  */
 import algosdk, { SuggestedParams } from "algosdk";
-import D from "decimal.js";
 
 import { LiquidityAddition } from "./addLiquidity";
 import { listPools } from "./api";
@@ -36,6 +35,9 @@ export type AddLiquidityOptions = {
 
   /** The amount of secondary asset to deposit. */
   secondaryAssetAmount: number;
+
+  /** The maximum allowed slippage in percents e.g. `10` is 10%. Adding liquidity will fail if slippage will be higher. */
+  slippagePct: number;
 };
 
 export type AddLiquidityTxOptions = {
@@ -51,6 +53,11 @@ export type RawAddLiquidityTxOptions = AddLiquidityOptions & {
 
   /** The transaction fee of the app call. */
   fee: number;
+
+  /**
+   * Amount of minimum liquidity tokens received. The transaction will fail if the real value will be lower than this.
+   */
+  minimumMintedLiquidityTokens: number;
 
   suggestedParams: SuggestedParams;
 
@@ -442,6 +449,7 @@ export class Pool {
       this,
       options.primaryAssetAmount,
       options.secondaryAssetAmount,
+      options.slippagePct,
     );
   }
 
@@ -466,8 +474,6 @@ export class Pool {
    * - deposit of asset B
    * - "ADDLIQ" application call to add liquidity with the above deposits
    *
-   * For constant product pools only - if the pool is empty and the product of both assets is larger then or equal 2**64 then an additional set of 3 transactions is built.
-   *
    * The initial liquidity must satisfy the expression `sqrt(a * b) - 1000 > 0`.
    *
    * @param options Options for adding the liquidity.
@@ -478,8 +484,7 @@ export class Pool {
    */
   buildAddLiquidityTxs(options: AddLiquidityTxOptions & SuggestedParamsOption) {
     const { liquidityAddition } = options;
-    let initialLiqTxs: algosdk.Transaction[] = [];
-    let { primaryAssetAmount, secondaryAssetAmount } = liquidityAddition;
+    const { primaryAssetAmount, secondaryAssetAmount } = liquidityAddition;
 
     if (this.calculator.isEmpty) {
       const aLiq = BigInt(primaryAssetAmount);
@@ -489,50 +494,18 @@ export class Pool {
           "Initial liquidity must satisfy the expression `sqrt(a * b) - 1000 > 0`",
         );
       }
-
-      if (
-        this.poolType === "CONSTANT_PRODUCT" ||
-        this.poolType === "NFT_CONSTANT_PRODUCT"
-      ) {
-        // Adding initial liquidity has a limitation that the product of 2 assets must be lower than 2**64. Let's check if we can fit below the limit.
-        const maxProduct = new D(2).pow(new D(64));
-        const product = new D(primaryAssetAmount).mul(secondaryAssetAmount);
-        if (product.gte(maxProduct)) {
-          // Need to split the liquidity into two chunks.
-          const divisor = new D(product).div(maxProduct).sqrt().add(1);
-          const primarySmallAmount = new D(primaryAssetAmount)
-            .div(divisor)
-            .trunc()
-            .toNumber();
-          const secondarySmallAmount = new D(secondaryAssetAmount)
-            .div(divisor)
-            .trunc()
-            .toNumber();
-
-          primaryAssetAmount -= primarySmallAmount;
-          secondaryAssetAmount -= secondarySmallAmount;
-
-          initialLiqTxs = this.buildRawAddLiquidityTxs({
-            address: options.address,
-            fee: liquidityAddition.effect.txFee,
-            primaryAssetAmount: primarySmallAmount,
-            secondaryAssetAmount: secondarySmallAmount,
-            suggestedParams: options.suggestedParams,
-            note: encode("Pact initial add liquidity"),
-          });
-        }
-      }
     }
 
-    const txs = this.buildRawAddLiquidityTxs({
+    return this.buildRawAddLiquidityTxs({
       address: options.address,
       fee: liquidityAddition.effect.txFee,
       primaryAssetAmount,
       secondaryAssetAmount,
+      slippagePct: liquidityAddition.slippagePct,
+      minimumMintedLiquidityTokens:
+        liquidityAddition.effect.minimumMintedLiquidityTokens,
       suggestedParams: options.suggestedParams,
     });
-
-    return [...initialLiqTxs, ...txs];
   }
 
   private buildRawAddLiquidityTxs(options: RawAddLiquidityTxOptions) {
@@ -554,7 +527,7 @@ export class Pool {
       address: options.address,
       suggestedParams: options.suggestedParams,
       fee: options.fee,
-      args: ["ADDLIQ", 0],
+      args: ["ADDLIQ", options.minimumMintedLiquidityTokens],
       extraAsset: this.liquidityAsset,
       note: options.note,
     });

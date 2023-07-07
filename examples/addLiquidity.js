@@ -25,6 +25,7 @@ const account = algosdk.mnemonicToSecretKey("<mnemonic>");
   const liquidityAddition = await pool.prepareAddLiquidity({
     primaryAssetAmount: 1_000_000,
     secondaryAssetAmount: 500_000,
+    slippagePct: 0.5,
   });
   const addLiqTxGroup = await liquidityAddition.prepareTxGroup(account.addr);
   const signedTx = addLiqTxGroup.signTxn(account.sk)

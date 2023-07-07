@@ -229,6 +229,7 @@ export class Zap {
       { ...this.pool, state: updatedState } as Pool,
       Number(this.params.primaryAddLiq),
       Number(this.params.secondaryAddLiq),
+      this.slippagePct,
     );
   }
 }

@@ -8,6 +8,11 @@ import {
 } from "./stableswapCalculator";
 import { TransactionGroup } from "./transactionGroup";
 
+// The amount of liquidity tokens that will be locked in a contract forever when adding the first liquidity.
+const MIN_LT_AMOUNT = 1000;
+
+export class AddLiquidityValidationError extends PactSdkError {}
+
 /**
  * The effect of adding liquidity to the pool.
  */
@@ -16,6 +21,11 @@ export type AddLiquidityEffect = {
    * Amount of new liquidity tokens minted when adding the liquidity. All the minted tokens will be received by the liquidity provider except of first 1000 minted tokens which are permanently locked in the contract.
    */
   mintedLiquidityTokens: number;
+
+  /**
+   * Amount of minimum liquidity tokens received. The transaction will fail if the real value will be lower than this.
+   */
+  minimumMintedLiquidityTokens: number;
 
   /**
    * Current stableswap amplifier. Zero for constant product pools.
@@ -66,6 +76,11 @@ export class LiquidityAddition {
   secondaryAssetAmount: number;
 
   /**
+   * The maximum amount of slippage allowed in performing the add liquidity.
+   */
+  slippagePct: number;
+
+  /**
    *
    * @param pool The pool to provide liquidity for.
    * @param primaryAssetAmount Amount of primary asset the will be added to the pool.
@@ -75,10 +90,14 @@ export class LiquidityAddition {
     pool: Pool,
     primaryAssetAmount: number,
     secondaryAssetAmount: number,
+    slippagePct: number,
   ) {
     this.pool = pool;
     this.primaryAssetAmount = primaryAssetAmount;
     this.secondaryAssetAmount = secondaryAssetAmount;
+    this.slippagePct = slippagePct;
+
+    this.validateLiquidityAddition();
     this.effect = this.buildEffect();
   }
 
@@ -94,6 +113,25 @@ export class LiquidityAddition {
       liquidityAddition: this,
       address,
     });
+  }
+
+  private validateLiquidityAddition() {
+    if (this.pool.state.totalLiquidity === 0) {
+      // First liquidity addition, the following condition must be met: sqrt(asset1 * asset2) - 1000 > 0
+      const mintedLT = Math.sqrt(
+        this.primaryAssetAmount * this.secondaryAssetAmount,
+      );
+      if (mintedLT <= MIN_LT_AMOUNT) {
+        throw new AddLiquidityValidationError(
+          "Provided amounts of tokens are too low.",
+        );
+      }
+    }
+    if (this.slippagePct < 0 || this.slippagePct > 100) {
+      throw new AddLiquidityValidationError(
+        "Splippage must be between 0 and 100.",
+      );
+    }
   }
 
   private buildEffect(): AddLiquidityEffect {
@@ -144,8 +182,19 @@ export class LiquidityAddition {
       }
     }
 
+    let minimumMintedLiquidityTokens = Math.round(
+      mintedLiquidityTokens - (mintedLiquidityTokens * this.slippagePct) / 100,
+    );
+    minimumMintedLiquidityTokens = Math.max(0, minimumMintedLiquidityTokens);
+
+    // If this is the first liquidity addition, 1000 tokens will be locked in the contract.
+    if (this.pool.state.totalLiquidity === 0) {
+      minimumMintedLiquidityTokens -= 1000;
+    }
+
     return {
       mintedLiquidityTokens,
+      minimumMintedLiquidityTokens,
       amplifier,
       bonusPct,
       txFee,

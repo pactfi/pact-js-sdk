@@ -69,6 +69,7 @@ describe("FolksLendingPool", () => {
       await testbed.lendingPoolAdapter.prepareAddLiquidity({
         primaryAssetAmount: 100_000,
         secondaryAssetAmount: 50_000,
+        slippagePct: 0,
       });
     let txGroup = await testbed.lendingPoolAdapter.prepareAddLiquidityTxGroup({
       address: testbed.account.addr,
