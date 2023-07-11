@@ -66,6 +66,7 @@ function swapTestCase(poolType: PoolType) {
     const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount,
       secondaryAssetAmount,
+      slippagePct: 0,
     });
 
     await testAddLiquidity(liquidityAddition, account);
@@ -83,6 +84,7 @@ function swapTestCase(poolType: PoolType) {
     const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount,
       secondaryAssetAmount,
+      slippagePct: 0,
     });
 
     await testAddLiquidity(liquidityAddition, account);
@@ -100,6 +102,7 @@ function swapTestCase(poolType: PoolType) {
     const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount,
       secondaryAssetAmount,
+      slippagePct: 0,
     });
 
     await testAddLiquidity(liquidityAddition, account);
@@ -117,6 +120,7 @@ function swapTestCase(poolType: PoolType) {
     const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount,
       secondaryAssetAmount,
+      slippagePct: 0,
     });
 
     await testAddLiquidity(liquidityAddition, account);
@@ -143,6 +147,7 @@ describe("nft constant product add/remove liquidity", () => {
     const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount,
       secondaryAssetAmount,
+      slippagePct: 0,
     });
     await testAddLiquidity(liquidityAddition, account);
 
@@ -179,6 +184,7 @@ describe("stableswap add liquidity", () => {
     const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount,
       secondaryAssetAmount,
+      slippagePct: 0,
     });
 
     await testAddLiquidity(liquidityAddition, account);
@@ -196,6 +202,7 @@ describe("stableswap add liquidity", () => {
     const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount,
       secondaryAssetAmount,
+      slippagePct: 0,
     });
 
     await testAddLiquidity(liquidityAddition, account);
@@ -216,6 +223,7 @@ describe("stableswap add liquidity", () => {
     const liquidityAddition = pool.prepareAddLiquidity({
       primaryAssetAmount,
       secondaryAssetAmount,
+      slippagePct: 0,
     });
 
     await testAddLiquidity(liquidityAddition, account);
@@ -238,6 +246,7 @@ describe("stableswap add liquidity", () => {
       pool.prepareAddLiquidity({
         primaryAssetAmount,
         secondaryAssetAmount,
+        slippagePct: 0,
       }),
     ).toThrow("Pool liquidity too low to cover add liquidity fee.");
   });

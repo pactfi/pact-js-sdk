@@ -140,11 +140,16 @@ export class LendingPoolAdapterTestBed {
     public lendingPoolAdapter: FolksLendingPoolAdapter,
   ) {}
 
-  async addLiquidity(primaryAssetAmount: number, secondaryAssetAmount: number) {
+  async addLiquidity(
+    primaryAssetAmount: number,
+    secondaryAssetAmount: number,
+    slippagePct = 0,
+  ) {
     const lendingLiquidityAddition =
       await this.lendingPoolAdapter.prepareAddLiquidity({
         primaryAssetAmount,
         secondaryAssetAmount,
+        slippagePct,
       });
     const txGroup = await this.lendingPoolAdapter.prepareAddLiquidityTxGroup({
       address: this.account.addr,

@@ -206,6 +206,7 @@ export class LendingLiquidityAddition {
     public lendingPoolAdapter: FolksLendingPoolAdapter,
     public primaryAssetAmount: number,
     public secondaryAssetAmount: number,
+    public slippagePct: number,
   ) {
     this.liquidityAddition = new LiquidityAddition(
       this.lendingPoolAdapter.pactPool,
@@ -215,6 +216,7 @@ export class LendingLiquidityAddition {
       this.lendingPoolAdapter.secondaryLendingPool.convertDeposit(
         this.secondaryAssetAmount,
       ),
+      slippagePct,
     );
     this.liquidityAddition.effect.txFee = PRE_ADD_LIQ_FEE + ADD_LIQ_FEE;
   }
@@ -312,6 +314,7 @@ export class FolksLendingPoolAdapter {
       this,
       options.primaryAssetAmount,
       options.secondaryAssetAmount,
+      options.slippagePct,
     );
   }
 

@@ -102,6 +102,7 @@ export async function addLiquidity(
   pool: Pool,
   primaryAssetAmount = 10_000,
   secondaryAssetAmount = 10_000,
+  slippagePct = 0,
 ) {
   const optInTx = await pool.liquidityAsset.prepareOptInTx(account.addr);
   await signAndSend(optInTx, account);
@@ -109,6 +110,7 @@ export async function addLiquidity(
   const liquidityAddition = pool.prepareAddLiquidity({
     primaryAssetAmount,
     secondaryAssetAmount,
+    slippagePct,
   });
   const addLiqTxGroup = await liquidityAddition.prepareTxGroup(account.addr);
   await signAndSend(addLiqTxGroup, account);
