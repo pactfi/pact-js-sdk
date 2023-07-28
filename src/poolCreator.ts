@@ -231,8 +231,8 @@ export class PoolCreator {
     }
 
     const pools = await listPools(this.pactApiUrl, {
-      primary_asset__algoid: params.primary_asset_id,
-      secondary_asset__algoid: params.secondary_asset_id,
+      primary_asset__on_chain_id: params.primary_asset_id,
+      secondary_asset__on_chain_id: params.secondary_asset_id,
     });
     const isRepeated = pools.results
       .filter((p) => !p.is_deprecated)
