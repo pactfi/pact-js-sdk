@@ -248,10 +248,10 @@ export async function getAppIdsFromAssets(
   secondaryAssetIndex: number,
 ): Promise<number[]> {
   const data = await listPools(pactApiUrl, {
-    primary_asset__algoid: primaryAssetIndex.toString(),
-    secondary_asset__algoid: secondaryAssetIndex.toString(),
+    primary_asset__on_chain_id: primaryAssetIndex.toString(),
+    secondary_asset__on_chain_id: secondaryAssetIndex.toString(),
   });
-  return data.results.map((pool) => parseInt(pool.appid));
+  return data.results.map((pool) => parseInt(pool.on_chain_id));
 }
 
 export type ConstantProductPoolParams = {

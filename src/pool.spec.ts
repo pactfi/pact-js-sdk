@@ -30,9 +30,9 @@ describe("Generic pool", () => {
 
     poolsApiResults = [
       {
-        appid: testBed.pool.appId.toString(),
-        primary_asset: { algoid: "0" },
-        secondary_asset: { algoid: testBed.coin.index.toString() },
+        on_chain_id: testBed.pool.appId.toString(),
+        primary_asset: { on_chain_id: "0" },
+        secondary_asset: { on_chain_id: testBed.coin.index.toString() },
       },
     ];
   });
@@ -44,9 +44,9 @@ describe("Generic pool", () => {
     expect(pools).toEqual({
       results: [
         {
-          appid: testBed.pool.appId.toString(),
-          primary_asset: { algoid: "0" },
-          secondary_asset: { algoid: testBed.coin.index.toString() },
+          on_chain_id: testBed.pool.appId.toString(),
+          primary_asset: { on_chain_id: "0" },
+          secondary_asset: { on_chain_id: testBed.coin.index.toString() },
         },
       ],
     });
@@ -103,14 +103,14 @@ describe("Generic pool", () => {
 
     poolsApiResults = [
       {
-        appid: testBed.pool.appId.toString(),
-        primary_asset: { algoid: "0" },
-        secondary_asset: { algoid: testBed.coin.index.toString() },
+        on_chain_id: testBed.pool.appId.toString(),
+        primary_asset: { on_chain_id: "0" },
+        secondary_asset: { on_chain_id: testBed.coin.index.toString() },
       },
       {
-        appid: second_app_id.toString(),
-        primary_asset: { algoid: "0" },
-        secondary_asset: { algoid: testBed.coin.index.toString() },
+        on_chain_id: second_app_id.toString(),
+        primary_asset: { on_chain_id: "0" },
+        secondary_asset: { on_chain_id: testBed.coin.index.toString() },
       },
     ];
 

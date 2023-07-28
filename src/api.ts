@@ -9,8 +9,8 @@ export type ListPoolsOptions = {
   limit?: string;
   is_verified?: string;
   creator?: string;
-  primary_asset__algoid?: string;
-  secondary_asset__algoid?: string;
+  primary_asset__on_chain_id?: string;
+  secondary_asset__on_chain_id?: string;
   primary_asset__unit_name?: string;
   secondary_asset__unit_name?: string;
   primary_asset__name?: string;
@@ -32,7 +32,7 @@ export type ApiListPoolsResponse = {
  */
 export type ApiPool = {
   address: string;
-  appid: string;
+  on_chain_id: string;
   confirmed_round: number;
   creator: string;
   fee_bps: number;
@@ -57,7 +57,7 @@ export type ApiPool = {
  * Details about the liquidity pool assets returned from the asset pool.
  */
 export type ApiAsset = {
-  algoid: string;
+  on_chain_id: string;
   decimals: number;
   id: number;
   is_liquidity_token: boolean;
